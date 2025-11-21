@@ -5,9 +5,12 @@ import dynamic from 'next/dynamic';
 import type { ReactNode } from 'react';
 import { TooltipProvider } from '@radix-ui/react-tooltip';
 
-const SearchDialog = dynamic(() => import('@/components/search'), {
-  ssr: false,
-});
+const SearchDialog = dynamic(
+  () => import('@/content/docs/ui/search/meilisearch'),
+  {
+    ssr: false,
+  },
+);
 
 const inject = `
 const urlParams = new URLSearchParams(window.location.search);

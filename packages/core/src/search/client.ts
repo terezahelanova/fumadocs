@@ -6,6 +6,7 @@ import { type StaticOptions } from '@/search/client/static';
 import { type AlgoliaOptions } from '@/search/client/algolia';
 import { type OramaCloudOptions } from '@/search/client/orama-cloud';
 import { type MixedbreadOptions } from '@/search/client/mixedbread';
+import { type MeilisearchOptions } from '@/search/client/meilisearch';
 import type { SortedResult } from '@/search';
 
 interface UseDocsSearch {
@@ -31,6 +32,9 @@ export type Client =
   | ({
       type: 'orama-cloud';
     } & OramaCloudOptions)
+  | ({
+      type: 'meilisearch';
+    } & MeilisearchOptions)
   | ({
       type: 'mixedbread';
     } & MixedbreadOptions);
@@ -126,6 +130,11 @@ export function useDocsSearch(
         if (client.type === 'mixedbread') {
           const { search } = await import('./client/mixedbread');
           return search(debouncedValue, client);
+        }
+
+        if (client.type === 'meilisearch') {
+          const { searchDocs } = await import('./client/meilisearch');
+          return await searchDocs(search, client);
         }
 
         throw new Error('unknown search client');
