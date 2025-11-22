@@ -134,7 +134,7 @@ export function useDocsSearch(
 
         if (client.type === 'meilisearch') {
           const { searchDocs } = await import('./client/meilisearch');
-          return await searchDocs(search, client);
+          return searchDocs(debouncedValue, client);
         }
 
         throw new Error('unknown search client');

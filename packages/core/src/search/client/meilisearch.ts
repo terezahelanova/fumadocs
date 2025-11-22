@@ -30,16 +30,12 @@ export async function searchDocs(
   const hits = response.hits ?? [];
 
   return hits.map<SortedResult>((hit) => {
-    const baseContent = hit.title || hit.content || hit.url || '';
-
     return {
       id: hit.id,
       type: 'page',
       url: hit.url,
-      content: baseContent,
-      contentWithHighlights: highlighter.highlight(
-        hit.content ?? hit.title ?? '',
-      ),
+      content: hit.title,
+      contentWithHighlights: highlighter.highlight(hit.content),
     };
   });
 }
