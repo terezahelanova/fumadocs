@@ -6,7 +6,7 @@ import type { ReactNode } from 'react';
 import { TooltipProvider } from '@radix-ui/react-tooltip';
 
 const SearchDialog = dynamic(
-  () => import('@/content/docs/ui/search/meilisearch'),
+  () => import('fumadocs-ui/components/dialog/search-meilisearch'),
   {
     ssr: false,
   },

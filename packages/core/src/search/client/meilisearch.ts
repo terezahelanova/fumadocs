@@ -34,7 +34,8 @@ export async function searchDocs(
       id: hit.id,
       type: 'page',
       url: hit.url,
-      content: hit.title,
+      breadcrumbs: hit.pageTitle && hit.heading ? [hit.pageTitle, hit.heading] : (hit.pageTitle ? [hit.pageTitle] : []),
+      content: hit.content,
       contentWithHighlights: highlighter.highlight(hit.content),
     };
   });
