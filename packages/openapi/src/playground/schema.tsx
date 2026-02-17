@@ -1,17 +1,28 @@
 import { Ajv2020 } from 'ajv/dist/2020';
-import type { RequestSchema } from '@/playground/index';
-import { createContext, ReactNode, useContext, useMemo, useState } from 'react';
-import { useFormContext } from 'react-hook-form';
+import { createContext, ReactNode, use, useMemo, useState } from 'react';
 import { getDefaultValue } from '@/playground/get-default-values';
 import type { ParsedSchema } from '@/utils/schema';
+import { mergeAllOf } from '@/utils/merge-schema';
+import { FieldKey, useDataEngine } from '@fumari/stf';
 
-interface SchemaContextType {
-  references: Record<string, RequestSchema>;
-  fieldInfoMap: Map<string, FieldInfo>;
+interface SchemaContextType extends SchemaScope {
+  references: Record<string, ParsedSchema>;
   ajv: Ajv2020;
 }
 
-type UnionField = 'anyOf' | 'allOf' | 'oneOf';
+export interface SchemaScope {
+  /**
+   * show write only fields
+   */
+  writeOnly: boolean;
+
+  /**
+   * show read only fields
+   */
+  readOnly: boolean;
+}
+
+type UnionField = 'anyOf' | 'oneOf';
 
 export interface FieldInfo {
   selectedType?: string;
@@ -21,6 +32,10 @@ export interface FieldInfo {
    * The actual field that represents union members.
    */
   unionField?: UnionField;
+
+  intersection?: {
+    merged: Exclude<ParsedSchema, boolean>;
+  };
 }
 
 const SchemaContext = createContext<SchemaContextType | undefined>(undefined);
@@ -28,11 +43,12 @@ export const anyFields = {
   type: ['string', 'number', 'boolean', 'array', 'object'],
   items: true,
   additionalProperties: true,
-} satisfies RequestSchema;
+} satisfies ParsedSchema;
 
 export function SchemaProvider({
   references,
-  fieldInfoMap,
+  readOnly,
+  writeOnly,
   children,
 }: Omit<SchemaContextType, 'ajv'> & { children: ReactNode }) {
   const ajv = useMemo(
@@ -49,13 +65,17 @@ export function SchemaProvider({
   return (
     <SchemaContext.Provider
       value={useMemo(
-        () => ({ references, fieldInfoMap, ajv }),
-        [fieldInfoMap, references, ajv],
+        () => ({ references, ajv, readOnly, writeOnly }),
+        [references, ajv, readOnly, writeOnly],
       )}
     >
       {children}
     </SchemaContext.Provider>
   );
+}
+
+export function useSchemaScope(): SchemaScope {
+  return use(SchemaContext)!;
 }
 
 /**
@@ -66,55 +86,58 @@ export function SchemaProvider({
  * @param depth - The depth to avoid duplicated field name with same schema (e.g. nested `oneOf`).
  */
 export function useFieldInfo(
-  fieldName: string,
-  schema: Exclude<RequestSchema, boolean>,
-  depth: number,
+  fieldName: FieldKey,
+  schema: Exclude<ParsedSchema, boolean>,
 ): {
   info: FieldInfo;
   updateInfo: (value: Partial<FieldInfo>) => void;
 } {
-  const { fieldInfoMap, ajv } = useContext(SchemaContext)!;
-  const form = useFormContext();
-  const keyName = `${fieldName}:${depth}`;
-  const value = form.getValues(fieldName as 'body');
+  const { ajv } = use(SchemaContext)!;
+  const engine = useDataEngine();
+  const attachedData = engine.attachedData<FieldInfo>('field-info');
   const [info, setInfo] = useState<FieldInfo>(() => {
-    const initialInfo = fieldInfoMap.get(keyName);
+    const value = engine.get(fieldName);
+    const initialInfo = attachedData.get(fieldName);
     if (initialInfo) return initialInfo;
 
+    const out: FieldInfo = {
+      oneOf: -1,
+    };
     const union = getUnion(schema);
     if (union) {
       const [members, field] = union;
 
-      let oneOf = members.findIndex((item) => ajv.validate(item, value));
-      if (oneOf === -1) oneOf = 0;
-
-      return {
-        oneOf,
-        unionField: field,
-      };
+      out.oneOf = members.findIndex((item) => ajv.validate(item, value));
+      if (out.oneOf === -1) out.oneOf = 0;
+      out.unionField = field;
     }
 
     if (Array.isArray(schema.type)) {
       const types = schema.type;
 
-      return {
-        selectedType:
-          types.find((type) => {
-            schema.type = type;
-            const match = ajv.validate(schema, value);
-            schema.type = types;
+      out.selectedType =
+        types.find((type) => {
+          schema.type = type;
+          const match = ajv.validate(schema, value);
+          schema.type = types;
 
-            return match;
-          }) ?? types.at(0),
-        oneOf: -1,
-      };
+          return match;
+        }) ?? types.at(0);
     }
 
-    return { oneOf: -1 };
+    if (schema.allOf) {
+      const merged = mergeAllOf(schema);
+
+      if (typeof merged !== 'boolean')
+        out.intersection = {
+          merged,
+        };
+    }
+
+    return out;
   });
 
-  fieldInfoMap.set(keyName, info);
-
+  attachedData.set(fieldName, info);
   return {
     info,
     updateInfo: (value) => {
@@ -123,11 +146,7 @@ export function useFieldInfo(
         ...value,
       };
 
-      if (
-        updated.oneOf === info.oneOf &&
-        updated.selectedType === info.selectedType
-      )
-        return;
+      if (updated.oneOf === info.oneOf && updated.selectedType === info.selectedType) return;
 
       setInfo(updated);
 
@@ -138,7 +157,7 @@ export function useFieldInfo(
         valueSchema = { ...schema, type: updated.selectedType };
       }
 
-      form.setValue(fieldName, getDefaultValue(valueSchema));
+      engine.update(fieldName, getDefaultValue(valueSchema));
     },
   };
 }
@@ -146,10 +165,8 @@ export function useFieldInfo(
 /**
  * Resolve `$ref` in the schema, **not recursive**.
  */
-export function useResolvedSchema(
-  schema: RequestSchema,
-): Exclude<RequestSchema, boolean> {
-  const { references } = useContext(SchemaContext)!;
+export function useResolvedSchema(schema: ParsedSchema): Exclude<ParsedSchema, boolean> {
+  const { references } = use(SchemaContext)!;
 
   return useMemo(() => {
     if (typeof schema === 'boolean') return anyFields;
@@ -158,33 +175,15 @@ export function useResolvedSchema(
   }, [references, schema]);
 }
 
-export function fallbackAny(
-  schema: RequestSchema,
-): Exclude<RequestSchema, boolean> {
+export function fallbackAny(schema: ParsedSchema): Exclude<ParsedSchema, boolean> {
   return typeof schema === 'boolean' ? anyFields : schema;
 }
 
-/**
- * We automatically merge `allOf` | `anyOf` if all members are objects, but it's also possible for them to behave same as a union (`oneOf`).
- */
-function isUnion(anyOrAllOf: readonly ParsedSchema[]): boolean {
-  return anyOrAllOf.every((item) => {
-    if (typeof item === 'boolean') return true;
-
-    const u = item.anyOf || item.allOf;
-    return item.type !== 'object' && (!u || isUnion(u));
-  });
-}
-
 function getUnion(
-  schema: Exclude<RequestSchema, boolean>,
+  schema: Exclude<ParsedSchema, boolean>,
 ): [readonly ParsedSchema[], UnionField] | undefined {
-  if (schema.anyOf && isUnion(schema.anyOf)) {
+  if (schema.anyOf) {
     return [schema.anyOf, 'anyOf'];
-  }
-
-  if (schema.allOf && isUnion(schema.allOf)) {
-    return [schema.allOf, 'allOf'];
   }
 
   if (schema.oneOf) return [schema.oneOf, 'oneOf'];

@@ -1,7 +1,7 @@
 import { expect, test } from 'vitest';
-import { createGenerator, type GeneratorOptions } from '@/lib/base';
+import { createGenerator } from '@/lib/base';
 import { getSimpleForm } from '@/lib/get-simple-form';
-import { createProject } from '@/create-project';
+import { createProject } from '@/lib/base';
 import { type Node, ts } from 'ts-morph';
 import path from 'node:path';
 import { fileURLToPath } from 'url';
@@ -10,11 +10,10 @@ const generator = createGenerator({
   cache: false,
 });
 
-const relative = (s: string): string =>
-  path.resolve(fileURLToPath(new URL(s, import.meta.url)));
+const relative = (s: string): string => path.resolve(fileURLToPath(new URL(s, import.meta.url)));
 
-test('class members', () => {
-  const out = generator.generateDocumentation(
+test('class members', async () => {
+  const out = await generator.generateDocumentation(
     {
       path: 'index.ts',
       content: `
@@ -56,14 +55,15 @@ test('class members', () => {
             "type": "number",
           },
         ],
+        "id": "index.ts-MyClass",
         "name": "MyClass",
       },
     ]
   `);
 });
 
-test('interface members', () => {
-  const out = generator.generateDocumentation(
+test('interface members', async () => {
+  const out = await generator.generateDocumentation(
     {
       path: 'index.ts',
       content: `
@@ -100,23 +100,22 @@ test('interface members', () => {
             "type": "number",
           },
         ],
+        "id": "index.ts-MyInterface",
         "name": "MyInterface",
       },
     ]
   `);
 });
 
-const tsconfig: GeneratorOptions = {
+const project = await createProject({
   tsconfigPath: relative('../tsconfig.json'),
-  basePath: relative('../'),
-  cache: false,
-};
-
-const project = createProject(tsconfig);
+});
 
 function getSimpleForms(fileName: string, sourceCode: string) {
   const out: string[] = [];
-  const sourceFile = project.createSourceFile(fileName, sourceCode);
+  const sourceFile = project.createSourceFile(fileName, sourceCode, {
+    overwrite: true,
+  });
   const checker = project.getTypeChecker();
 
   function visit(node: Node) {

@@ -3,21 +3,13 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { Command } from 'commander';
 import picocolors from 'picocolors';
-import {
-  localResolver,
-  remoteResolver,
-  type Resolver,
-} from '@/utils/add/install-component';
-import { createOrLoadConfig, initConfig } from '@/config';
-import {
-  type JsonTreeNode,
-  treeToJavaScript,
-  treeToMdx,
-} from '@/commands/file-tree';
+import { createOrLoadConfig, initConfig, type LoadedConfig } from '@/config';
+import { type JsonTreeNode, treeToJavaScript, treeToMdx } from '@/commands/file-tree';
 import { runTree } from '@/utils/file-tree/run-tree';
 import packageJson from '../package.json';
 import { customise } from '@/commands/customise';
 import { add } from '@/commands/add';
+import { HttpRegistryClient, LocalRegistryClient } from '@/registry/client';
 
 const program = new Command().option('--config <string>');
 
@@ -39,13 +31,12 @@ program
   .description('simple way to customise layouts with Fumadocs UI')
   .option('--dir <string>', 'the root url or directory to resolve registry')
   .action(async (options: { config?: string; dir?: string }) => {
-    const resolver = getResolverFromDir(options.dir);
-    await customise(resolver, await createOrLoadConfig(options.config));
+    await customise(createClientFromDir(options.dir, await createOrLoadConfig(options.config)));
   });
 
 const dirShortcuts: Record<string, string> = {
-  ':dev': 'https://preview.fumadocs.dev/registry',
-  ':localhost': 'http://localhost:3000/registry',
+  ':preview': 'https://preview.fumadocs.dev/registry',
+  ':dev': 'http://localhost:3000/registry',
 };
 
 program
@@ -53,19 +44,14 @@ program
   .description('add a new component to your docs')
   .argument('[components...]', 'components to download')
   .option('--dir <string>', 'the root url or directory to resolve registry')
-  .action(
-    async (input: string[], options: { config?: string; dir?: string }) => {
-      const resolver = getResolverFromDir(options.dir);
-      await add(input, resolver, await createOrLoadConfig(options.config));
-    },
-  );
+  .action(async (input: string[], options: { config?: string; dir?: string }) => {
+    const client = createClientFromDir(options.dir, await createOrLoadConfig(options.config));
+    await add(input, client);
+  });
 
 program
   .command('tree')
-  .argument(
-    '[json_or_args]',
-    'JSON output of `tree` command or arguments for the `tree` command',
-  )
+  .argument('[json_or_args]', 'JSON output of `tree` command or arguments for the `tree` command')
   .argument('[output]', 'output path of file')
   .option('--js', 'output as JavaScript file')
   .option('--no-root', 'remove the root node')
@@ -74,11 +60,7 @@ program
     async (
       str: string | undefined,
       output: string | undefined,
-      {
-        js,
-        root,
-        importName,
-      }: { js: boolean; root: boolean; importName?: string },
+      { js, root, importName }: { js: boolean; root: boolean; importName?: string },
     ) => {
       const jsExtensions = ['.js', '.tsx', '.jsx'];
       const noRoot = !root;
@@ -104,14 +86,12 @@ program
     },
   );
 
-function getResolverFromDir(
-  dir: string = 'https://fumadocs.dev/registry',
-): Resolver {
+function createClientFromDir(dir = 'https://fumadocs.dev/registry', config: LoadedConfig) {
   if (dir in dirShortcuts) dir = dirShortcuts[dir];
 
   return dir.startsWith('http://') || dir.startsWith('https://')
-    ? remoteResolver(dir)
-    : localResolver(dir);
+    ? new HttpRegistryClient(dir, config)
+    : new LocalRegistryClient(dir, config);
 }
 
 program.parse();

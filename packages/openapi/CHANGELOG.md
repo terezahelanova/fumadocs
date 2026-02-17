@@ -1,5 +1,202 @@
 # @fuma-docs/openapi
 
+## 10.3.6
+
+### Patch Changes
+
+- 6ded66b: Improve server selector UI
+- Updated dependencies [1c26656]
+  - fumadocs-ui@16.6.3
+  - fumadocs-core@16.6.3
+
+## 10.3.5
+
+### Patch Changes
+
+- 013bba7: support servers override
+- Updated dependencies [9241992]
+- Updated dependencies [64a0057]
+  - fumadocs-ui@16.6.0
+  - fumadocs-core@16.6.0
+
+## 10.3.4
+
+### Patch Changes
+
+- 7872e27: fix change detector
+- Updated dependencies [7872e27]
+- Updated dependencies [1ad8a38]
+- Updated dependencies [3e8efb0]
+  - @fumari/stf@0.0.3
+  - fumadocs-core@16.5.4
+  - fumadocs-ui@16.5.4
+
+## 10.3.3
+
+### Patch Changes
+
+- c22f6ee: bump tsdown
+- Updated dependencies [c22f6ee]
+  - fumadocs-ui@16.5.2
+  - fumadocs-core@16.5.2
+  - @fumari/stf@0.0.2
+
+## 10.3.2
+
+### Patch Changes
+
+- 53ad20b: Pre-scan class names to optimize Tailwind CSS compilation performance
+- Updated dependencies [c08364a]
+- Updated dependencies [53ad20b]
+  - fumadocs-ui@16.5.1
+  - fumadocs-core@16.5.1
+
+## 10.3.1
+
+### Minor Changes
+
+- c03f8c3: Support `/ui/base` for reduced bundle size
+
+### Patch Changes
+
+- Updated dependencies [9ba1250]
+  - fumadocs-ui@16.5.0
+  - fumadocs-core@16.5.0
+
+## 10.2.7
+
+### Patch Changes
+
+- eb3d763: Break long words in openapi examples
+- 2abaff9: Improve object inputs
+- Updated dependencies [430a5f1]
+- Updated dependencies [099fde7]
+- Updated dependencies [6fd7e63]
+  - fumadocs-ui@16.4.10
+  - fumadocs-core@16.4.10
+
+## 10.2.6
+
+### Patch Changes
+
+- 8d1362e: Fixed a performance issue where getSchema() would bypass the internal cache and re-parse the OpenAPI spec on every call. This was caused by calling the internal getSchemas() function instead of the cached method.
+
+## 10.2.5
+
+### Patch Changes
+
+- cadff12: Use internal implementation for form in OpenAPI playground
+- 897cc26: Improve schema UI array rendering
+- Updated dependencies [6ac37c4]
+  - @fumari/stf@0.0.1
+
+## 10.2.4
+
+### Patch Changes
+
+- e55510b: fix unknown parameter encoding
+- Updated dependencies [9f06196]
+  - fumadocs-ui@16.4.5
+  - fumadocs-core@16.4.5
+
+## 10.2.3
+
+### Patch Changes
+
+- 7e58c8e: Fix Parameter Serialization
+- b16a32f: Switch to tsdown for bundling
+- Updated dependencies [590d36a]
+- Updated dependencies [98d38ff]
+- Updated dependencies [446631d]
+- Updated dependencies [b16a32f]
+  - fumadocs-core@16.4.2
+  - fumadocs-ui@16.4.2
+
+## 10.2.2
+
+### Patch Changes
+
+- b752aff: Add `getSchema()` to virtual pages
+- Updated dependencies [da98fe2]
+- Updated dependencies [a3b7919]
+  - fumadocs-ui@16.4.0
+  - fumadocs-core@16.4.0
+
+## 10.2.1
+
+### Patch Changes
+
+- 058a46b: Support `structuredData` in virtual file source
+- 52e84ad: improve schema UI for large unions
+
+## 10.2.0
+
+### Minor Changes
+
+- a69b060: Support both Base UI and Radix UI as base component libraries
+
+### Patch Changes
+
+- Updated dependencies [a69b060]
+  - fumadocs-ui@16.3.0
+  - fumadocs-core@16.3.0
+  - @fumadocs/ui@16.3.0
+
+## 10.1.4
+
+### Patch Changes
+
+- 90ada4b: Fix example value generation for parameters
+
+## 10.1.3
+
+### Patch Changes
+
+- ddeeb74: Improve error message on invalid document props
+- fb3440c: fix possible hydration errors
+- Updated dependencies [8469c6d]
+- Updated dependencies [7292424]
+  - fumadocs-ui@16.2.5
+  - fumadocs-core@16.2.5
+
+## 10.1.2
+
+### Patch Changes
+
+- 88150ae: Handle empty summary when generating display name
+
+## 10.1.1
+
+### Patch Changes
+
+- 25393cd: Fix duplicated security scheme name in requirements
+- 928cc25: Fix wrong option types
+
+## 10.1.0
+
+### Minor Changes
+
+- 4b2a7e4: Require peer dep of Fumadocs 16.2.0
+- e5c9f7f: Display webhook request examples
+
+### Patch Changes
+
+- ed67af0: enhance schema generation by merging properties from extended schema properties
+- 196d71c: support webhook badge
+- 0e327bd: use container query
+- c44d999: Fix schema scope in API playgrounds
+- 6635eb5: Improve UX
+- 0e327bd: Improve `allOf` merging util
+- 60e3324: improve description rendering
+- Updated dependencies [80579fd]
+- Updated dependencies [a9f4eda]
+- Updated dependencies [36eb90a]
+- Updated dependencies [5d65002]
+- Updated dependencies [9a39883]
+- Updated dependencies [12d3f78]
+  - fumadocs-ui@16.2.0
+  - fumadocs-core@16.2.0
+
 ## 10.0.11
 
 ### Patch Changes
@@ -103,8 +300,8 @@
 
   ```ts
   // components/api-page.tsx
-  import { openapi } from '@/lib/openapi';
-  import { createAPIPage } from 'fumadocs-openapi/ui';
+  import { openapi } from "@/lib/openapi";
+  import { createAPIPage } from "fumadocs-openapi/ui";
 
   export const APIPage = createAPIPage(openapi, {
     // e.g. customise render functions
@@ -134,8 +331,8 @@
 
   ```tsx
   // components/api-page.tsx
-  import { openapi } from '@/lib/openapi';
-  import { createAPIPage } from 'fumadocs-openapi/ui';
+  import { openapi } from "@/lib/openapi";
+  import { createAPIPage } from "fumadocs-openapi/ui";
 
   export const APIPage = createAPIPage(openapi, {
     content: {
@@ -165,23 +362,23 @@
   Before:
 
   ```ts
-  import { openapi } from '@/lib/openapi';
+  import { openapi } from "@/lib/openapi";
 
   void generateFiles({
-    input: ['./products.yaml'],
-    output: './content/docs',
+    input: ["./products.yaml"],
+    output: "./content/docs",
   });
   ```
 
   After:
 
   ```ts
-  import { generateFiles } from 'fumadocs-openapi';
-  import { openapi } from '@/lib/openapi';
+  import { generateFiles } from "fumadocs-openapi";
+  import { openapi } from "@/lib/openapi";
 
   void generateFiles({
     input: openapi,
-    output: './content/docs',
+    output: "./content/docs",
   });
   ```
 
@@ -213,12 +410,12 @@
 
   ```ts
   // lib/openapi.ts
-  import { createOpenAPI } from 'fumadocs-openapi/server';
-  import path from 'node:path';
+  import { createOpenAPI } from "fumadocs-openapi/server";
+  import path from "node:path";
 
   export const openapi = createOpenAPI({
-    input: [path.resolve('./scalar.yaml')],
-    proxyUrl: '/api/proxy',
+    input: [path.resolve("./scalar.yaml")],
+    proxyUrl: "/api/proxy",
   });
   ```
 
@@ -242,8 +439,8 @@
 
   ```ts
   // components/api-page.tsx
-  import { openapi } from '@/lib/openapi';
-  import { createAPIPage } from 'fumadocs-openapi/ui';
+  import { openapi } from "@/lib/openapi";
+  import { createAPIPage } from "fumadocs-openapi/ui";
 
   export const APIPage = createAPIPage(openapi, {
     playground: {
@@ -256,9 +453,9 @@
 
   ```tsx
   // components/api-page.tsx
-  import { openapi } from '@/lib/openapi';
-  import { createAPIPage } from 'fumadocs-openapi/ui';
-  import client from './api-page.client';
+  import { openapi } from "@/lib/openapi";
+  import { createAPIPage } from "fumadocs-openapi/ui";
+  import client from "./api-page.client";
 
   export const APIPage = createAPIPage(openapi, {
     client,
@@ -267,17 +464,17 @@
 
   ```tsx
   // components/api-page.client.tsx
-  'use client';
-  import { defineClientConfig } from 'fumadocs-openapi/ui/client';
+  "use client";
+  import { defineClientConfig } from "fumadocs-openapi/ui/client";
 
   export default defineClientConfig({
     playground: {
       transformAuthInputs: (inputs) => [
         ...inputs,
         {
-          fieldName: 'auth.tests',
+          fieldName: "auth.tests",
           children: <div>Tests</div>,
-          defaultValue: '',
+          defaultValue: "",
         },
       ],
     },
@@ -290,10 +487,10 @@
 
   ```tsx
   // components/api-page.tsx
-  import { openapi } from '@/lib/openapi';
-  import { createAPIPage } from 'fumadocs-openapi/ui';
-  import { adapters } from './my-media-adapters';
-  import client from './api-page.client';
+  import { openapi } from "@/lib/openapi";
+  import { createAPIPage } from "fumadocs-openapi/ui";
+  import { adapters } from "./my-media-adapters";
+  import client from "./api-page.client";
 
   export const APIPage = createAPIPage(openapi, {
     client,
@@ -303,9 +500,9 @@
 
   ```tsx
   // components/api-page.client.tsx
-  'use client';
-  import { defineClientConfig } from 'fumadocs-openapi/ui/client';
-  import { adapters } from './my-media-adapters';
+  "use client";
+  import { defineClientConfig } from "fumadocs-openapi/ui/client";
+  import { adapters } from "./my-media-adapters";
 
   export default defineClientConfig({
     mediaAdapters: adapters,
@@ -323,11 +520,11 @@
 
   ```tsx
   // components/api-page.client.tsx
-  'use client';
-  import { defineClientConfig } from 'fumadocs-openapi/ui/client';
+  "use client";
+  import { defineClientConfig } from "fumadocs-openapi/ui/client";
 
   export default defineClientConfig({
-    storageKeyPrefix: 'fumadocs-openapi-custom-',
+    storageKeyPrefix: "fumadocs-openapi-custom-",
   });
   ```
 
@@ -673,22 +870,22 @@
   Migration: Move the server object from `lib/source` to `lib/openapi`
 
   ```ts
-  import { createOpenAPI } from 'fumadocs-openapi/server';
+  import { createOpenAPI } from "fumadocs-openapi/server";
 
   export const openapi = createOpenAPI({
-    input: ['./my-schema.json'],
+    input: ["./my-schema.json"],
   });
   ```
 
   Use the server object for `generateFiles()`:
 
   ```ts
-  import { generateFiles } from 'fumadocs-openapi';
-  import { openapi } from '@/lib/openapi';
+  import { generateFiles } from "fumadocs-openapi";
+  import { openapi } from "@/lib/openapi";
 
   void generateFiles({
     input: openapi,
-    output: './content/docs',
+    output: "./content/docs",
     // we recommend to enable it
     // make sure your endpoint description doesn't break MDX syntax.
     includeDescription: true,
@@ -1006,15 +1203,15 @@
 
   ```ts
   generateFiles({
-    input: ['./content/docs/openapi/museum.yaml'],
-    output: './content/docs/openapi/(generated)',
-    per: 'operation',
+    input: ["./content/docs/openapi/museum.yaml"],
+    output: "./content/docs/openapi/(generated)",
+    per: "operation",
     name: (output, document) => {
       // page info
       output.item;
       // parsed OpenAPI schema
       document;
-      return 'dir/my-file';
+      return "dir/my-file";
     },
   });
   ```
@@ -1023,11 +1220,11 @@
 
   ```ts
   generateFiles({
-    input: ['./content/docs/openapi/museum.yaml'],
-    output: './content/docs/openapi/(generated)',
-    per: 'operation',
+    input: ["./content/docs/openapi/museum.yaml"],
+    output: "./content/docs/openapi/(generated)",
+    per: "operation",
     name: {
-      algorithm: 'v1',
+      algorithm: "v1",
     },
   });
   ```
@@ -1038,9 +1235,9 @@
 
   ```ts
   generateFiles({
-    input: ['./content/docs/openapi/museum.yaml'],
-    output: './content/docs/openapi/(generated)',
-    per: 'operation',
+    input: ["./content/docs/openapi/museum.yaml"],
+    output: "./content/docs/openapi/(generated)",
+    per: "operation",
   });
   ```
 
@@ -1202,11 +1399,11 @@
   We highly recommend to use the following instead:
 
   ```css
-  @import 'tailwindcss';
-  @import 'fumadocs-ui/css/neutral.css';
-  @import 'fumadocs-ui/css/preset.css';
+  @import "tailwindcss";
+  @import "fumadocs-ui/css/neutral.css";
+  @import "fumadocs-ui/css/preset.css";
   /* do this */
-  @import 'fumadocs-openapi/css/preset.css';
+  @import "fumadocs-openapi/css/preset.css";
   ```
 
 - Updated dependencies [3a5595a]
@@ -1250,10 +1447,10 @@
   in your `mdx-components.tsx` (or where you pass MDX components):
 
   ```tsx
-  import defaultComponents from 'fumadocs-ui/mdx';
-  import { APIPage } from 'fumadocs-openapi/ui';
-  import { openapi } from '@/lib/source';
-  import type { MDXComponents } from 'mdx/types';
+  import defaultComponents from "fumadocs-ui/mdx";
+  import { APIPage } from "fumadocs-openapi/ui";
+  import { openapi } from "@/lib/source";
+  import type { MDXComponents } from "mdx/types";
 
   export function getMDXComponents(components?: MDXComponents): MDXComponents {
     return {
@@ -1605,8 +1802,8 @@
   From:
 
   ```tsx
-  import { createOpenAPI } from 'fumadocs-openapi/server';
-  import { APIPlayground } from 'fumadocs-openapi/scalar';
+  import { createOpenAPI } from "fumadocs-openapi/server";
+  import { APIPlayground } from "fumadocs-openapi/scalar";
 
   export const openapi = createOpenAPI({
     useScalar: true,
@@ -1616,8 +1813,8 @@
   To:
 
   ```tsx
-  import { createOpenAPI } from 'fumadocs-openapi/server';
-  import { APIPlayground } from 'fumadocs-openapi/scalar';
+  import { createOpenAPI } from "fumadocs-openapi/server";
+  import { APIPlayground } from "fumadocs-openapi/scalar";
 
   export const openapi = createOpenAPI({
     renderer: {
@@ -2329,7 +2526,7 @@
   ---
 
   <APIPage
-    operations={[{ path: '/v1/apis.deleteApi', method: 'post' }]}
+    operations={[{ path: "/v1/apis.deleteApi", method: "post" }]}
     hasHead={false}
   />
   ```
@@ -2535,13 +2732,13 @@
   Add the package to `content` under your Tailwind CSS configuration.
 
   ```js
-  import { createPreset, presets } from 'fumadocs-ui/tailwind-plugin';
+  import { createPreset, presets } from "fumadocs-ui/tailwind-plugin";
 
   /** @type {import('tailwindcss').Config} */
   export default {
     content: [
-      './node_modules/fumadocs-ui/dist/**/*.js',
-      './node_modules/fumadocs-openapi/dist/**/*.js',
+      "./node_modules/fumadocs-ui/dist/**/*.js",
+      "./node_modules/fumadocs-openapi/dist/**/*.js",
     ],
     presets: [createPreset()],
   };
@@ -2739,11 +2936,11 @@
   migrate: Create a script named `scripts/generate-docs.mjs`:
 
   ```js
-  import { generateFiles } from 'fumadocs-openapi';
+  import { generateFiles } from "fumadocs-openapi";
 
   void generateFiles({
-    input: ['./petstore.yaml'],
-    output: './content/docs',
+    input: ["./petstore.yaml"],
+    output: "./content/docs",
   });
   ```
 
@@ -2790,18 +2987,18 @@
    * @type {import("@fuma-docs/openapi").Config}
    */
   module.exports = {
-    input: ['./petstore.yaml'],
-    output: './content/docs',
-    per: 'tag',
+    input: ["./petstore.yaml"],
+    output: "./content/docs",
+    per: "tag",
     render: (title, description) => {
       return {
         frontmatter: [
-          '---',
+          "---",
           `title: ${title}`,
           `description: ${description}`,
-          'toc: false',
-          '---',
-        ].join('\n'),
+          "toc: false",
+          "---",
+        ].join("\n"),
       };
     },
   };

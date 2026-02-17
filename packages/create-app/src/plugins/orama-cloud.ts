@@ -3,11 +3,7 @@ import { copy, pick, writeFile } from '@/utils';
 import path from 'node:path';
 import { depVersions, sourceDir } from '@/constants';
 import fs from 'node:fs/promises';
-import {
-  reactRouterRoutes,
-  rootProvider,
-  tanstackStartRoutes,
-} from '@/transform';
+import { reactRouterRoutes, rootProvider, tanstackStartRoutes } from '@/transform';
 
 export function oramaCloud(): TemplatePlugin {
   return {
@@ -36,9 +32,7 @@ See https://fumadocs.dev/docs/headless/search/orama-cloud for integrating Orama 
       await copy(path.join(sourceDir, 'template/+orama-cloud/@root'), dest);
       await copy(path.join(sourceDir, 'template/+orama-cloud/@app'), appDir);
 
-      await rootProvider(this, (mod) =>
-        mod.addSearchDialog('@/components/search'),
-      );
+      await rootProvider(this, (mod) => mod.addSearchDialog('@/components/search'));
 
       if (template.value === 'tanstack-start') {
         await tanstackStartRoutes(this, (mod) => {
@@ -55,29 +49,24 @@ See https://fumadocs.dev/docs/headless/search/orama-cloud for integrating Orama 
         });
       } else if (template.value.startsWith('react-router')) {
         await reactRouterRoutes(this, (mod) => {
-          mod.addRoute(
-            'static.json',
-            'routes/static.ts',
-            route['react-router'],
-          );
+          mod.addRoute('static.json', 'routes/static.ts', route['react-router']);
           mod.removeRoute('api/search');
         });
       } else if (template.value.startsWith('+next')) {
         await Promise.all([
-          fs
-            .unlink(path.join(appDir, 'app/api/search/route.ts'))
-            .catch(() => null),
+          fs.unlink(path.join(appDir, 'app/api/search/route.ts')).catch(() => null),
           writeFile(path.join(appDir, 'app/static.json/route.ts'), route.next),
         ]);
       } else {
         await Promise.all([
-          fs.unlink(path.join(appDir, 'pages/api/search.ts')).catch(() => null),
-          writeFile(path.join(appDir, 'pages/static.json.ts'), route.waku),
+          fs.unlink(path.join(appDir, 'pages/_api/api/search.ts')).catch(() => null),
+          writeFile(path.join(appDir, 'pages/_api/static.json.ts'), route.waku),
         ]);
       }
 
       const filePath = {
         '+next+fuma-docs-mdx': '.next/server/app/static.json.body',
+        '+next+fuma-docs-mdx+static': '.next/server/app/static.json.body',
         'tanstack-start': '.output/public/static.json',
         'tanstack-start-spa': 'dist/client/static.json',
         'react-router': 'build/client/static.json',

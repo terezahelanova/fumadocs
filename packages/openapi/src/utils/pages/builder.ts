@@ -1,18 +1,8 @@
 import type { ProcessedDocument } from '@/utils/process-document';
 import type { OpenAPIServer } from '@/server';
 import type { OperationItem, WebhookItem } from '@/ui/api-page';
-import type {
-  Document,
-  OperationObject,
-  PathItemObject,
-  TagObject,
-} from '@/types';
-import {
-  getTagDisplayName,
-  methodKeys,
-  type NoReference,
-} from '@/utils/schema';
-import type { OpenAPIV3_1 } from 'openapi-types';
+import type { Document, OperationObject, PathItemObject, TagObject } from '@/types';
+import { getTagDisplayName, methodKeys, type NoReference } from '@/utils/schema';
 import { idToTitle } from '@/utils/id-to-title';
 
 interface BaseEntry {
@@ -48,11 +38,7 @@ export interface OutputGroup extends BaseEntry {
   webhooks: WebhookItem[];
 }
 
-export type OutputEntry =
-  | TagOutput
-  | OperationOutput
-  | WebhookOutput
-  | OutputGroup;
+export type OutputEntry = TagOutput | OperationOutput | WebhookOutput | OutputGroup;
 
 export interface PagesBuilderConfig {
   toPages: (builder: PagesBuilder) => void;
@@ -168,7 +154,7 @@ export function fromSchema(
         pathItem,
         operation,
         get displayName() {
-          return operation.summary ?? pathItem.summary ?? idToTitle(item.name);
+          return operation.summary || pathItem.summary || idToTitle(item.name);
         },
       };
     },
@@ -182,11 +168,9 @@ export function fromSchema(
         operation,
         get displayName() {
           return (
-            operation.summary ??
-            pathItem.summary ??
-            (operation.operationId
-              ? idToTitle(operation.operationId)
-              : item.path)
+            operation.summary ||
+            pathItem.summary ||
+            (operation.operationId ? idToTitle(operation.operationId) : item.path)
           );
         },
       };
@@ -222,7 +206,7 @@ function extractInfo(document: NoReference<Document>): ExtractedInfo {
       if (!pathItem[methodKey]) continue;
 
       result.operations.push({
-        method: methodKey as OpenAPIV3_1.HttpMethods,
+        method: methodKey,
         path,
         tags: pathItem[methodKey]?.tags,
       });
@@ -236,7 +220,7 @@ function extractInfo(document: NoReference<Document>): ExtractedInfo {
       if (!pathItem[methodKey]) continue;
 
       result.webhooks.push({
-        method: methodKey as OpenAPIV3_1.HttpMethods,
+        method: methodKey,
         name,
         tags: pathItem[methodKey]?.tags,
       });

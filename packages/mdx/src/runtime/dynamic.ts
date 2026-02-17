@@ -15,10 +15,9 @@ export interface LazyEntry<Data = unknown> {
   hash?: string;
 }
 
-export type CreateDynamic<
-  Config,
-  TC extends InternalTypeConfig = InternalTypeConfig,
-> = ReturnType<typeof dynamic<Config, TC>>;
+export type CreateDynamic<Config, TC extends InternalTypeConfig = InternalTypeConfig> = ReturnType<
+  typeof dynamic<Config, TC>
+>;
 
 export async function dynamic<Config, TC extends InternalTypeConfig>(
   configExports: Config,
@@ -33,17 +32,14 @@ export async function dynamic<Config, TC extends InternalTypeConfig>(
   const create = server<Config, TC>(serverOptions);
 
   function getDocCollection(name: string): DocCollectionItem | undefined {
-    const collection = core.getConfig().getCollection(name);
+    const collection = core.getCollection(name);
     if (!collection) return;
 
     if (collection.type === 'docs') return collection.docs;
     else if (collection.type === 'doc') return collection;
   }
 
-  function convertLazyEntries(
-    collection: DocCollectionItem,
-    entries: LazyEntry<unknown>[],
-  ) {
+  function convertLazyEntries(collection: DocCollectionItem, entries: LazyEntry[]) {
     const head: Record<string, () => unknown> = {};
     const body: Record<string, () => Promise<unknown>> = {};
 
@@ -80,8 +76,7 @@ export async function dynamic<Config, TC extends InternalTypeConfig>(
       entries: LazyEntry<unknown>[],
     ) {
       const collection = getDocCollection(name as string);
-      if (!collection)
-        throw new Error(`the doc collection ${name as string} doesn't exist.`);
+      if (!collection) throw new Error(`the doc collection ${name as string} doesn't exist.`);
 
       const { head, body } = convertLazyEntries(collection, entries);
 
@@ -94,8 +89,7 @@ export async function dynamic<Config, TC extends InternalTypeConfig>(
       entries: LazyEntry<unknown>[],
     ) {
       const collection = getDocCollection(name as string);
-      if (!collection)
-        throw new Error(`the doc collection ${name as string} doesn't exist.`);
+      if (!collection) throw new Error(`the doc collection ${name as string} doesn't exist.`);
 
       const docs = convertLazyEntries(collection, entries);
       return create.docsLazy(name, base, meta, docs.head, docs.body);

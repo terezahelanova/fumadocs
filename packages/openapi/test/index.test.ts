@@ -23,56 +23,54 @@ describe('Generate documents', () => {
   test('Pet Store (Per Operation)', async () => {
     const out = await generateFilesOnly({
       input: createOpenAPI({
-        input: [path.join(cwd, './fixtures/petstore.yaml')],
+        input: () => ({
+          petstore: path.join(cwd, './fixtures/petstore.yaml'),
+        }),
       }),
       per: 'operation',
     });
 
-    await expect(stringifyOutput(out)).toMatchFileSnapshot(
-      './out/petstore-per-operation.json',
-    );
+    await expect(stringifyOutput(out)).toMatchFileSnapshot('./out/petstore-per-operation.md');
   });
 
   test('Museum (Per Tag)', async () => {
     const out = await generateFilesOnly({
       input: createOpenAPI({
-        input: [path.join(cwd, './fixtures/museum.yaml')],
+        input: () => ({
+          museum: path.join(cwd, './fixtures/museum.yaml'),
+        }),
       }),
       per: 'tag',
     });
 
-    await expect(stringifyOutput(out)).toMatchFileSnapshot(
-      './out/museum-per-tag.json',
-    );
+    await expect(stringifyOutput(out)).toMatchFileSnapshot('./out/museum-per-tag.md');
   });
 
   test('Unkey (Per File)', async () => {
     const out = await generateFilesOnly({
       input: createOpenAPI({
-        input: [path.join(cwd, './fixtures/unkey.json')],
+        input: () => ({
+          unkey: path.join(cwd, './fixtures/unkey.json'),
+        }),
       }),
       per: 'file',
     });
 
-    await expect(stringifyOutput(out)).toMatchFileSnapshot(
-      './out/unkey-per-file.json',
-    );
+    await expect(stringifyOutput(out)).toMatchFileSnapshot('./out/unkey-per-file.md');
   });
 
   test('Generate Files', async () => {
     const out = await generateFilesOnly({
       input: createOpenAPI({
-        input: [
-          path.join(cwd, './fixtures/museum.yaml'),
-          path.join(cwd, './fixtures/petstore.yaml'),
-        ],
+        input: () => ({
+          museum: path.join(cwd, './fixtures/museum.yaml'),
+          petstore: path.join(cwd, './fixtures/petstore.yaml'),
+        }),
       }),
       per: 'file',
     });
 
-    await expect(stringifyOutput(out)).toMatchFileSnapshot(
-      './out/museum+petstore.json',
-    );
+    await expect(stringifyOutput(out)).toMatchFileSnapshot('./out/museum+petstore.md');
   });
 
   test('Generate Files - throws error when no input files found', async () => {
@@ -89,7 +87,9 @@ describe('Generate documents', () => {
   test('Generate Files - groupBy tag per operation', async () => {
     const out = await generateFilesOnly({
       input: createOpenAPI({
-        input: [path.join(cwd, './fixtures/products.yaml')],
+        input: () => ({
+          products: path.join(cwd, './fixtures/products.yaml'),
+        }),
       }),
       per: 'operation',
       groupBy: 'tag',
@@ -98,9 +98,7 @@ describe('Generate documents', () => {
       },
     });
 
-    await expect(stringifyOutput(out)).toMatchFileSnapshot(
-      './out/products-group-by-tag.json',
-    );
+    await expect(stringifyOutput(out)).toMatchFileSnapshot('./out/products-group-by-tag.md');
   });
 
   test('Generate Files - with index', async () => {
@@ -117,7 +115,7 @@ describe('Generate documents', () => {
       index: {
         url: {
           baseUrl: '/docs',
-          contentDir: './out',
+          contentDir: '',
         },
         items: [
           {
@@ -129,16 +127,17 @@ describe('Generate documents', () => {
       },
     });
 
-    await expect(stringifyOutput(out)).toMatchFileSnapshot(
-      './out/products-with-index.json',
-    );
+    await expect(stringifyOutput(out)).toMatchFileSnapshot('./out/products-with-index.md');
   });
 });
 
 function stringifyOutput(output: OutputFile[]) {
-  return JSON.stringify(
-    output.sort((a, b) => a.path.localeCompare(b.path)),
-    null,
-    2,
-  ).replaceAll(cwd, '~');
+  output.sort((a, b) => a.path.localeCompare(b.path));
+
+  const lines: string[] = [];
+  for (const file of output) {
+    const lang = path.extname(file.path).slice(1);
+    lines.push(`\`\`\`${lang} title="${file.path}"\n${file.content}\n\`\`\``);
+  }
+  return lines.join('\n\n');
 }

@@ -1,11 +1,6 @@
-import {
-  CircleCheck,
-  CircleX,
-  Info,
-  TriangleAlert,
-} from 'fumadocs-ui/internal/icons';
-import { ComponentProps } from 'react';
-import { cn } from 'fumadocs-ui/utils/cn';
+import { CircleCheck, CircleX, Info, TriangleAlert } from './icons';
+import type { ComponentProps } from 'react';
+import { twMerge as cn } from 'tailwind-merge';
 
 interface CalloutProps extends ComponentProps<'div'> {
   /**
@@ -16,11 +11,7 @@ interface CalloutProps extends ComponentProps<'div'> {
 
 const iconClass = 'size-5 -me-0.5 fill-(--callout-color) text-fd-card';
 
-export function ObsidianCallout({
-  className,
-  type = 'info',
-  ...props
-}: CalloutProps) {
+export function ObsidianCallout({ className, type = 'info', ...props }: CalloutProps) {
   if (type === 'warn') type = 'warning';
   if ((type as unknown) === 'tip') type = 'info';
 
@@ -54,10 +45,7 @@ export function ObsidianCallout({
 
 export function ObsidianCalloutTitle(props: ComponentProps<'p'>) {
   return (
-    <div
-      {...props}
-      className={cn('font-medium prose-no-margin', props.className)}
-    >
+    <div {...props} className={cn('font-medium prose-no-margin', props.className)}>
       {props.children}
     </div>
   );
@@ -67,10 +55,7 @@ export function ObsidianCalloutBody(props: ComponentProps<'div'>) {
   return (
     <div
       {...props}
-      className={cn(
-        'text-fd-muted-foreground prose-no-margin empty:hidden',
-        props.className,
-      )}
+      className={cn('text-fd-muted-foreground prose-no-margin empty:hidden', props.className)}
     >
       {props.children}
     </div>

@@ -3,25 +3,30 @@ import { basename, dirname, joinPath, slash, splitPath } from '@/source/path';
 import type { ResolvedLoaderConfig } from '../loader';
 import type { SourceConfig } from '../source';
 
-export type ContentStorage<Config extends SourceConfig = SourceConfig> =
-  FileSystem<ContentStorageFile<Config>>;
+export type ContentStorage<Config extends SourceConfig = SourceConfig> = FileSystem<
+  ContentStorageFile<Config>
+>;
 
 export type ContentStorageFile<Config extends SourceConfig = SourceConfig> =
-  | {
-      path: string;
-      absolutePath?: string;
+  | ContentStorageMetaFile<Config>
+  | ContentStoragePageFile<Config>;
 
-      format: 'meta';
-      data: Config['metaData'];
-    }
-  | {
-      path: string;
-      absolutePath?: string;
+export interface ContentStorageMetaFile<Config extends SourceConfig = SourceConfig> {
+  path: string;
+  absolutePath?: string;
 
-      format: 'page';
-      slugs: string[];
-      data: Config['pageData'];
-    };
+  format: 'meta';
+  data: Config['metaData'];
+}
+
+export interface ContentStoragePageFile<Config extends SourceConfig = SourceConfig> {
+  path: string;
+  absolutePath?: string;
+
+  format: 'page';
+  slugs: string[];
+  data: Config['pageData'];
+}
 
 function isLocaleValid(locale: string) {
   return locale.length > 0 && !/\d+/.test(locale);
@@ -31,8 +36,7 @@ const parsers = {
   dir(path: string): [string, string?] {
     const [locale, ...segs] = path.split('/');
 
-    if (locale && segs.length > 0 && isLocaleValid(locale))
-      return [segs.join('/'), locale];
+    if (locale && segs.length > 0 && isLocaleValid(locale)) return [segs.join('/'), locale];
 
     return [path];
   },
@@ -52,30 +56,19 @@ const parsers = {
   },
 };
 
+const EmptyLang = Symbol();
+
 /**
- * @param defaultLanguage - language to use when i18n is not configured.
- * @returns a map of locale and its content storage.
+ * convert input files into virtual file system.
  *
  * in the storage, locale codes are removed from file paths, hence the same file will have same file paths in every storage.
  */
-export function buildContentStorage(
-  loaderConfig: ResolvedLoaderConfig,
-  defaultLanguage: string,
-): Record<string, ContentStorage> {
-  const {
-    source,
-    plugins = [],
-    i18n = {
-      defaultLanguage,
-      parser: 'none',
-      languages: [defaultLanguage],
-    },
-  } = loaderConfig;
+export function createContentStorageBuilder(loaderConfig: ResolvedLoaderConfig) {
+  const { source, plugins = [], i18n } = loaderConfig;
 
-  const parser = parsers[i18n.parser ?? 'dot'];
-  const storages: Record<string, ContentStorage> = {};
+  const parser = i18n ? parsers[i18n.parser ?? 'dot'] : parsers.none;
   const normalized = new Map<
-    string,
+    string | typeof EmptyLang,
     {
       pathWithoutLocale: string;
       file: ContentStorageFile;
@@ -102,9 +95,7 @@ export function buildContentStorage(
       };
     }
 
-    const [pathWithoutLocale, locale = i18n.defaultLanguage] = parser(
-      file.path,
-    );
+    const [pathWithoutLocale, locale = i18n ? i18n.defaultLanguage : EmptyLang] = parser(file.path);
     const list = normalized.get(locale) ?? [];
     list.push({
       pathWithoutLocale,
@@ -113,38 +104,44 @@ export function buildContentStorage(
     normalized.set(locale, list);
   }
 
-  const fallbackLang =
-    i18n.fallbackLanguage !== null
-      ? (i18n.fallbackLanguage ?? i18n.defaultLanguage)
-      : null;
-
-  function scan(lang: string) {
-    if (storages[lang]) return;
-
-    let storage: ContentStorage;
-    if (fallbackLang && fallbackLang !== lang) {
-      scan(fallbackLang);
-      storage = new FileSystem(storages[fallbackLang]);
-    } else {
-      storage = new FileSystem();
-    }
-
-    for (const { pathWithoutLocale, file } of normalized.get(lang) ?? []) {
+  function makeStorage(locale: string | typeof EmptyLang, inherit?: ContentStorage) {
+    const storage = new FileSystem(inherit);
+    for (const { pathWithoutLocale, file } of normalized.get(locale) ?? []) {
       storage.write(pathWithoutLocale, file);
     }
 
-    const context = {
-      storage,
-    };
+    const context = { storage };
     for (const plugin of plugins) {
       plugin.transformStorage?.(context);
     }
 
-    storages[lang] = storage;
+    return storage;
   }
 
-  for (const lang of i18n.languages) scan(lang);
-  return storages;
+  return {
+    i18n(): Record<string, ContentStorage> {
+      const storages: Record<string, ContentStorage> = {};
+      if (!i18n) return storages;
+
+      const fallbackLang =
+        i18n.fallbackLanguage !== null ? (i18n.fallbackLanguage ?? i18n.defaultLanguage) : null;
+
+      function scan(lang: string): ContentStorage {
+        if (storages[lang]) return storages[lang];
+
+        return (storages[lang] = makeStorage(
+          lang,
+          fallbackLang && fallbackLang !== lang ? scan(fallbackLang) : undefined,
+        ));
+      }
+
+      for (const lang of i18n.languages) scan(lang);
+      return storages;
+    },
+    single(): ContentStorage {
+      return makeStorage(EmptyLang);
+    },
+  };
 }
 
 /**

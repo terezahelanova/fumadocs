@@ -6,12 +6,11 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/ui/components/dialog';
-import type { OpenAPIV3_1 } from 'openapi-types';
 import { useForm } from 'react-hook-form';
 import { Input, labelVariants } from '@/ui/components/input';
 import { useQuery } from '@/utils/use-query';
 import { type ReactNode, useEffect, useState } from 'react';
-import { cn } from 'fumadocs-ui/utils/cn';
+import { cn } from '@/utils/cn';
 import { buttonVariants } from 'fumadocs-ui/components/ui/button';
 import {
   Select,
@@ -20,11 +19,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/ui/components/select';
+import type { OAuth2SecurityScheme } from '@/types';
 
-type FlowType = keyof OpenAPIV3_1.OAuth2SecurityScheme['flows'];
+type FlowType = keyof NonNullable<OAuth2SecurityScheme['flows']>;
 
 export interface AuthDialogProps {
-  scheme: OpenAPIV3_1.OAuth2SecurityScheme;
+  scheme: OAuth2SecurityScheme;
   scopes: string[];
 
   open: boolean;
@@ -55,18 +55,27 @@ const FlowTypes = {
   password: {
     name: 'Resource Owner Password Flow',
     description: 'Authenticate using username and password.',
+    supported: true,
   },
   clientCredentials: {
     name: 'Client Credentials',
     description: 'Intended for the server-to-server authentication.',
+    supported: true,
   },
   authorizationCode: {
     name: 'Authorization code',
     description: 'Authenticate with 3rd party services',
+    supported: true,
   },
   implicit: {
     name: 'Implicit',
     description: 'Retrieve the access token directly.',
+    supported: true,
+  },
+  deviceAuthorization: {
+    name: 'Device Authorization',
+    description: 'Authenticate with device.',
+    supported: false,
   },
 } as const;
 
@@ -79,9 +88,9 @@ export function OauthDialog({
   setOpen,
 }: AuthDialogProps) {
   const [type, setType] = useState(() => {
-    return Object.keys(scheme.flows)[0] as FlowType;
+    return Object.keys(scheme.flows!)[0] as FlowType;
   });
-
+  const { supported } = FlowTypes[type];
   const form = useForm<FormValues>({
     defaultValues: {
       clientId: '',
@@ -91,38 +100,36 @@ export function OauthDialog({
     },
   });
 
-  const authCodeCallback = useQuery(
-    async (code: string, state: AuthCodeState) => {
-      const value = scheme.flows.authorizationCode!;
+  const authCodeCallback = useQuery(async (code: string, state: AuthCodeState) => {
+    const value = scheme.flows!.authorizationCode!;
 
-      const res = await fetch(value.tokenUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: new URLSearchParams({
-          grant_type: 'authorization_code',
-          code,
-          // note: `state` could be invalid, but server will check it
-          redirect_uri: state.redirect_uri,
-          client_id: state.client_id,
-          client_secret: state.client_secret,
-        }),
-      });
+    const res = await fetch(value.tokenUrl!, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: new URLSearchParams({
+        grant_type: 'authorization_code',
+        code,
+        // note: `state` could be invalid, but server will check it
+        redirect_uri: state.redirect_uri,
+        client_id: state.client_id,
+        client_secret: state.client_secret,
+      }),
+    });
 
-      if (!res.ok) throw new Error(await res.text());
-      const { access_token, token_type = 'Bearer' } = (await res.json()) as {
-        access_token: string;
-        token_type?: string;
-      };
+    if (!res.ok) throw new Error(await res.text());
+    const { access_token, token_type = 'Bearer' } = (await res.json()) as {
+      access_token: string;
+      token_type?: string;
+    };
 
-      setToken(`${token_type} ${access_token}`);
-      setOpen(false);
-    },
-  );
+    setToken(`${token_type} ${access_token}`);
+    setOpen(false);
+  });
 
   useEffect(() => {
-    if (scheme.flows.authorizationCode) {
+    if (scheme.flows!.authorizationCode) {
       const params = new URLSearchParams(window.location.search);
       const state = params.get('state');
       const code = params.get('code');
@@ -139,7 +146,7 @@ export function OauthDialog({
       }
     }
 
-    if (scheme.flows.implicit && window.location.hash.length > 1) {
+    if (scheme.flows!.implicit && window.location.hash.length > 1) {
       const params = new URLSearchParams(window.location.hash.slice(1));
       const state = params.get('state');
       const token = params.get('access_token');
@@ -158,7 +165,7 @@ export function OauthDialog({
 
   const authorize = useQuery(async (values: FormValues) => {
     if (type === 'implicit') {
-      const value = scheme.flows[type]!;
+      const value = scheme.flows![type]!;
 
       const params = new URLSearchParams();
       params.set('response_type', 'token');
@@ -177,7 +184,7 @@ export function OauthDialog({
       return;
     }
     if (type === 'authorizationCode') {
-      const value = scheme.flows[type]!;
+      const value = scheme.flows![type]!;
 
       const params = new URLSearchParams();
       params.set('response_type', 'code');
@@ -199,9 +206,9 @@ export function OauthDialog({
 
     let res;
     if (type === 'password') {
-      const value = scheme.flows[type]!;
+      const value = scheme.flows![type]!;
 
-      res = await fetch(value.tokenUrl, {
+      res = await fetch(value.tokenUrl!, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
@@ -216,9 +223,9 @@ export function OauthDialog({
     }
 
     if (type === 'clientCredentials') {
-      const value = scheme.flows[type]!;
+      const value = scheme.flows![type]!;
 
-      res = await fetch(value.tokenUrl, {
+      res = await fetch(value.tokenUrl!, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
@@ -258,9 +265,7 @@ export function OauthDialog({
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Authorization</DialogTitle>
-          <DialogDescription>
-            Obtain the access token for API.
-          </DialogDescription>
+          <DialogDescription>Obtain the access token for API.</DialogDescription>
         </DialogHeader>
         <form
           className="flex flex-col gap-6"
@@ -274,7 +279,7 @@ export function OauthDialog({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {Object.keys(scheme.flows).map((key) => {
+              {Object.keys(scheme.flows!).map((key) => {
                 const { name, description } = FlowTypes[key as FlowType];
 
                 return (
@@ -355,20 +360,26 @@ export function OauthDialog({
               </fieldset>
             </>
           )}
-          {error ? (
-            <p className="text-red-400 font-medium text-sm">{String(error)}</p>
-          ) : null}
-          <button
-            type="submit"
-            disabled={isLoading}
-            className={cn(
-              buttonVariants({
-                color: 'primary',
-              }),
-            )}
-          >
-            {authCodeCallback.isLoading ? 'Fetching token...' : 'Submit'}
-          </button>
+          {supported ? (
+            <>
+              {error ? <p className="text-red-400 font-medium text-sm">{String(error)}</p> : null}
+              <button
+                type="submit"
+                disabled={isLoading}
+                className={cn(
+                  buttonVariants({
+                    color: 'primary',
+                  }),
+                )}
+              >
+                {authCodeCallback.isLoading ? 'Fetching token...' : 'Submit'}
+              </button>
+            </>
+          ) : (
+            <p className="text-fd-muted-foreground bg-fd-muted p-2 rounded-lg border">
+              Unsupported
+            </p>
+          )}
         </form>
       </DialogContent>
     </Dialog>

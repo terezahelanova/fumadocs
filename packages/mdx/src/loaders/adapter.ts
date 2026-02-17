@@ -2,11 +2,10 @@ import type { CompilerOptions } from '@/loaders/mdx/build-mdx';
 import type { LoadFnOutput, LoadHook } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import fs from 'node:fs/promises';
-import type { SourceMap, TransformPluginContext } from 'rollup';
-import type { TransformResult } from 'vite';
+import type { TransformPluginContext } from 'rollup';
+import type { Environment, TransformResult } from 'vite';
 import { parse } from 'node:querystring';
 import { ValidationError } from '@/utils/validation';
-import path from 'node:path';
 import type { LoaderContext } from 'webpack';
 import { readFileSync } from 'node:fs';
 
@@ -22,6 +21,13 @@ export interface LoaderInput {
 export interface LoaderOutput {
   code: string;
   map?: unknown;
+
+  /**
+   * Only supported in Vite 8.
+   *
+   * Explicitly define the transformed module type, for unsupported environments, you need to consider the differences between each bundler.
+   */
+  moduleType?: 'js' | 'json';
 }
 
 type Awaitable<T> = T | Promise<T>;
@@ -99,6 +105,8 @@ export function toVite(loader: Loader): ViteLoader {
       return !loader.test || loader.test.test(id);
     },
     async transform(value, id) {
+      // Vite doesn't expose the real context types
+      const environment = (this as unknown as { environment: Environment }).environment;
       const [file, query = ''] = id.split('?', 2);
 
       const result = await loader.load({
@@ -107,7 +115,7 @@ export function toVite(loader: Loader): ViteLoader {
         getSource() {
           return value;
         },
-        development: this.environment.mode === 'dev',
+        development: environment.mode === 'dev',
         compiler: {
           addDependency: (file) => {
             this.addWatchFile(file);
@@ -118,7 +126,8 @@ export function toVite(loader: Loader): ViteLoader {
       if (result === null) return null;
       return {
         code: result.code,
-        map: result.map as SourceMap,
+        map: result.map as TransformResult['map'],
+        moduleType: result.moduleType,
       };
     },
   };
@@ -157,9 +166,6 @@ export function toWebpack(loader: Loader): WebpackLoader {
       }
 
       if (!(error instanceof Error)) throw error;
-
-      const fpath = path.relative(this.context, this.resourcePath);
-      error.message = `${fpath}:${error.name}: ${error.message}`;
       callback(error);
     }
   };
@@ -172,7 +178,7 @@ export function toBun(loader: Loader) {
 
     return {
       contents: output.code,
-      loader: 'js',
+      loader: output.moduleType ?? 'js',
     };
   }
 

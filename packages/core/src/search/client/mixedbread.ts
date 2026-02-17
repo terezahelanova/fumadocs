@@ -1,14 +1,19 @@
 import type { SortedResult } from '@/search';
-import Mixedbread from '@mixedbread/sdk';
-import { VectorStoreSearchResponse } from '@mixedbread/sdk/resources/vector-stores';
+import type Mixedbread from '@mixedbread/sdk';
 import removeMd from 'remove-markdown';
 import Slugger from 'github-slugger';
+import type { StoreSearchResponse } from '@mixedbread/sdk/resources/stores';
 
+/**
+ * @deprecated Use `createMixedbreadSearchAPI` from `fumadocs-core/search/mixedbread` instead.
+ * This client-side approach exposes your API key in the browser.
+ * The server-side approach keeps the key secure and uses `type: 'fetch'` on the client.
+ */
 export interface MixedbreadOptions {
   /**
-   * The ID of the vector store to search in
+   * The identifier of the store to search in
    */
-  vectorStoreId: string;
+  storeIdentifier: string;
 
   /**
    * The Mixedbread SDK client instance
@@ -33,7 +38,7 @@ export interface SearchMetadata {
   tag?: string;
 }
 
-type VectorStoreSearchResult = VectorStoreSearchResponse['data'][number] & {
+type StoreSearchResult = StoreSearchResponse['data'][number] & {
   generated_metadata: SearchMetadata;
 };
 
@@ -51,29 +56,29 @@ function extractHeadingTitle(text: string): string {
 
   if (firstLine) {
     // Use remove-markdown to convert to plain text and remove colons
-    const plainText = removeMd(firstLine, {
+    return removeMd(firstLine, {
       useImgAltText: false,
     });
-
-    return plainText;
   }
 
   return '';
 }
 
-export async function search(
-  query: string,
-  options: MixedbreadOptions,
-): Promise<SortedResult[]> {
-  const { client, vectorStoreId, tag } = options;
+/**
+ * @deprecated Use `createMixedbreadSearchAPI` from `fumadocs-core/search/mixedbread` instead.
+ * This client-side approach exposes your API key in the browser.
+ * The server-side approach keeps the key secure and uses `type: 'fetch'` on the client.
+ */
+export async function search(query: string, options: MixedbreadOptions): Promise<SortedResult[]> {
+  const { client, storeIdentifier, tag } = options;
 
   if (!query.trim()) {
     return [];
   }
 
-  const res = await client.vectorStores.search({
+  const res = await client.stores.search({
     query,
-    vector_store_identifiers: [vectorStoreId],
+    store_identifiers: [storeIdentifier],
     top_k: 10,
     filters: {
       key: 'generated_metadata.tag',
@@ -85,7 +90,7 @@ export async function search(
     },
   });
 
-  return (res.data as VectorStoreSearchResult[]).flatMap((item) => {
+  return (res.data as StoreSearchResult[]).flatMap((item) => {
     const metadata = item.generated_metadata;
 
     const url = metadata.url || '#';
@@ -100,8 +105,7 @@ export async function search(
       },
     ];
 
-    const headingTitle =
-      item.type === 'text' ? extractHeadingTitle(item.text) : '';
+    const headingTitle = item.type === 'text' && item.text ? extractHeadingTitle(item.text) : '';
 
     if (headingTitle) {
       slugger.reset();

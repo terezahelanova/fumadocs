@@ -1,5 +1,24 @@
 # fumadocs-docgen
 
+## 3.0.6
+
+### Patch Changes
+
+- c22f6ee: bump tsdown
+- Updated dependencies [c22f6ee]
+  - fumadocs-core@16.5.2
+
+## 3.0.5
+
+### Patch Changes
+
+- b16a32f: Switch to tsdown for bundling
+- Updated dependencies [590d36a]
+- Updated dependencies [98d38ff]
+- Updated dependencies [446631d]
+- Updated dependencies [b16a32f]
+  - fumadocs-core@16.4.2
+
 ## 3.0.4
 
 ### Patch Changes
@@ -125,7 +144,7 @@
   Import it like:
 
   ```ts
-  import { remarkTypeScriptToJavaScript } from 'fumadocs-docgen/remark-ts2js';
+  import { remarkTypeScriptToJavaScript } from "fumadocs-docgen/remark-ts2js";
   ```
 
   instead of importing from `fumadocs-docgen`.

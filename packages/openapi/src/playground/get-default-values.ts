@@ -1,6 +1,6 @@
-import type { RequestSchema } from '@/playground/index';
+import type { ParsedSchema } from '@/utils/schema';
 
-export function getDefaultValue(schema: RequestSchema): unknown {
+export function getDefaultValue(schema: ParsedSchema): unknown {
   if (typeof schema === 'boolean') return null;
 
   const type = schema.type;
@@ -20,8 +20,7 @@ export function getDefaultValue(schema: RequestSchema): unknown {
   if (type === 'array') return [];
   if (type === 'null') return null;
   if (type === 'string') {
-    if (typeof schema === 'object' && schema.format === 'binary')
-      return undefined;
+    if (typeof schema === 'object' && schema.format === 'binary') return undefined;
 
     return '';
   }

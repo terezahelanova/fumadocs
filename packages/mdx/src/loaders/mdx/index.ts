@@ -1,5 +1,4 @@
 import { fumaMatter } from '@/utils/fuma-matter';
-import type { SourceMap } from 'rollup';
 import type { Loader } from '@/loaders/adapter';
 import { z } from 'zod';
 import type { DocCollectionItem } from '@/config/build';
@@ -9,12 +8,11 @@ import { createHash } from 'node:crypto';
 import type { ConfigLoader } from '@/loaders/config';
 import { mdxLoaderGlob } from '..';
 
-const querySchema = z
-  .object({
-    only: z.literal(['frontmatter', 'all']).default('all'),
-    collection: z.string().optional(),
-  })
-  .loose();
+const querySchema = z.looseObject({
+  only: z.literal(['frontmatter', 'all']).default('all'),
+  collection: z.string().optional(),
+  workspace: z.string().optional(),
+});
 
 const cacheEntry = z.object({
   code: z.string(),
@@ -24,26 +22,24 @@ const cacheEntry = z.object({
 
 type CacheEntry = z.infer<typeof cacheEntry>;
 
-export function createMdxLoader(configLoader: ConfigLoader): Loader {
+export function createMdxLoader({ getCore }: ConfigLoader): Loader {
   return {
     test: mdxLoaderGlob,
-    async load({
-      getSource,
-      development: isDevelopment,
-      query,
-      compiler,
-      filePath,
-    }) {
-      const config = await configLoader.getConfig();
+    async load({ getSource, development: isDevelopment, query, compiler, filePath }) {
+      let core = await getCore();
       const value = await getSource();
       const matter = fumaMatter(value);
-      const parsed = querySchema.parse(query);
+      const { collection: collectionName, workspace, only } = querySchema.parse(query);
+      if (workspace) {
+        core = core.getWorkspaces().get(workspace) ?? core;
+      }
 
       let after: (() => Promise<void>) | undefined;
 
-      if (!isDevelopment && config.global.experimentalBuildCache) {
-        const cacheDir = config.global.experimentalBuildCache;
-        const cacheKey = `${parsed.hash}_${parsed.collection ?? 'global'}_${generateCacheHash(filePath)}`;
+      const { experimentalBuildCache = false } = core.getConfig().global;
+      if (!isDevelopment && experimentalBuildCache) {
+        const cacheDir = experimentalBuildCache;
+        const cacheKey = `${collectionName ?? 'global'}_${generateCacheHash(filePath)}`;
 
         const cached = await fs
           .readFile(path.join(cacheDir, cacheKey))
@@ -63,9 +59,7 @@ export function createMdxLoader(configLoader: ConfigLoader): Loader {
         };
       }
 
-      const collection = parsed.collection
-        ? config.getCollection(parsed.collection)
-        : undefined;
+      const collection = collectionName ? core.getCollection(collectionName) : undefined;
 
       let docCollection: DocCollectionItem | undefined;
       switch (collection?.type) {
@@ -78,26 +72,24 @@ export function createMdxLoader(configLoader: ConfigLoader): Loader {
       }
 
       if (docCollection) {
-        matter.data = await configLoader.core.transformFrontmatter(
+        matter.data = await core.transformFrontmatter(
           { collection: docCollection, filePath, source: value },
           matter.data as Record<string, unknown>,
         );
       }
 
-      if (parsed.only === 'frontmatter') {
+      if (only === 'frontmatter') {
         return {
           code: `export const frontmatter = ${JSON.stringify(matter.data)}`,
           map: null,
         };
       }
 
-      // ensure the line number is correct in dev mode
-      const lineOffset = isDevelopment ? countLines(matter.matter) : 0;
-
       const { buildMDX } = await import('@/loaders/mdx/build-mdx');
-      const compiled = await buildMDX(configLoader.core, docCollection, {
+      const compiled = await buildMDX(core, docCollection, {
         isDevelopment,
-        source: '\n'.repeat(lineOffset) + matter.content,
+        // ensure the line number is correct in errors
+        source: '\n'.repeat(countLines(matter.matter)) + matter.content,
         filePath,
         frontmatter: matter.data as Record<string, unknown>,
         _compiler: compiler,
@@ -106,7 +98,7 @@ export function createMdxLoader(configLoader: ConfigLoader): Loader {
 
       const out = {
         code: String(compiled.value),
-        map: compiled.map as SourceMap,
+        map: compiled.map,
       };
 
       await after?.();

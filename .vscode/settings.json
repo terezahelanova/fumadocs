@@ -11,5 +11,9 @@
   "files.associations": {
     "**/packages/create-app/template/**/*": "plaintext"
   },
-  "editor.defaultFormatter": "esbenp.prettier-vscode"
+  "prettier.enable": false,
+  "editor.formatOnSave": true,
+  "editor.defaultFormatter": "oxc.oxc-vscode",
+  "oxc.fmt.configPath": ".oxfmtrc.jsonc",
+  "terminal.integrated.scrollback": 10000
 }

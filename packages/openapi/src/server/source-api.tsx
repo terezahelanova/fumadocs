@@ -1,7 +1,6 @@
 import { MethodLabel } from '@/ui/components/method-label';
 import type {
   LoaderPlugin,
-  MetaData,
   PageData,
   PageTreeTransformer,
   Source,
@@ -10,16 +9,22 @@ import type {
 import type { OpenAPIServer } from '@/server/create';
 import type { SchemaToPagesOptions } from '@/utils/pages/preset-auto';
 import type { ApiPageProps } from '@/ui/api-page';
+import type { StructuredData } from 'fumadocs-core/mdx-plugins';
+import type { TOCItemType } from 'fumadocs-core/toc';
+import type { ProcessedDocument } from '@/utils/process-document';
 
 declare module 'fumadocs-core/source' {
   export interface PageData {
     /**
      * Added by Fumadocs OpenAPI
      */
-    _openapi?: {
-      method?: string;
-    };
+    _openapi?: InternalOpenAPIMeta;
   }
+}
+
+export interface InternalOpenAPIMeta {
+  method?: string;
+  webhook?: boolean;
 }
 
 /**
@@ -35,19 +40,24 @@ export function openapiPlugin(): LoaderPlugin {
         const file = this.storage.read(filePath);
         if (!file || file.format !== 'page') return node;
 
-        const data = file.data;
-        let method: string | undefined;
+        const openApiData = file.data._openapi;
+        if (!openApiData || typeof openApiData !== 'object') return node;
 
-        if ('_openapi' in data && typeof data._openapi === 'object') {
-          method = data._openapi.method;
-        }
-
-        if (method) {
+        if (openApiData.webhook) {
+          node.name = (
+            <>
+              {node.name}{' '}
+              <span className="ms-auto border border-current px-1 rounded-lg text-xs text-nowrap font-mono">
+                Webhook
+              </span>
+            </>
+          );
+        } else if (openApiData.method) {
           node.name = (
             <>
               {node.name}{' '}
               <MethodLabel className="ms-auto text-xs text-nowrap">
-                {method}
+                {openApiData.method}
               </MethodLabel>
             </>
           );
@@ -61,19 +71,22 @@ export function openapiPlugin(): LoaderPlugin {
 
 interface OpenAPIPageData extends PageData {
   getAPIPageProps: () => ApiPageProps;
+  getSchema: () => { id: string } & ProcessedDocument;
+  structuredData: StructuredData;
+  toc: TOCItemType[];
 }
 
 /**
  * Generate virtual pages for Fumadocs Source API
  */
 export async function openapiSource(
-  from: OpenAPIServer,
+  server: OpenAPIServer,
   options: SchemaToPagesOptions & {
     baseDir?: string;
   } = {},
 ): Promise<
   Source<{
-    metaData: MetaData;
+    metaData: never;
     pageData: OpenAPIPageData;
   }>
 > {
@@ -81,27 +94,44 @@ export async function openapiSource(
   const { createAutoPreset } = await import('@/utils/pages/preset-auto');
   const { fromServer } = await import('@/utils/pages/builder');
   const { toBody } = await import('@/utils/pages/to-body');
+  const { toStaticData } = await import('@/utils/pages/to-static-data');
   const files: VirtualFile<{
     pageData: OpenAPIPageData;
-    metaData: MetaData;
+    metaData: never;
   }>[] = [];
 
-  const entries = await fromServer(from, createAutoPreset(options));
-  for (const entry of Object.values(entries).flat()) {
-    files.push({
-      type: 'page',
-      path: `${baseDir}/${entry.path}`,
-      data: {
-        ...entry.info,
-        getAPIPageProps: () => toBody(entry),
-        _openapi: {
-          method:
-            entry.type === 'operation' || entry.type === 'webhook'
-              ? entry.item.method
-              : undefined,
+  const entries = await fromServer(server, createAutoPreset(options));
+  for (const [schemaId, list] of Object.entries(entries)) {
+    const processed = await server.getSchema(schemaId);
+    for (const entry of list) {
+      const props = toBody(entry);
+      props.showDescription ??= true;
+
+      files.push({
+        type: 'page',
+        path: `${baseDir}/${entry.path}`,
+        data: {
+          ...entry.info,
+          getAPIPageProps() {
+            return props;
+          },
+          getSchema() {
+            return {
+              id: schemaId,
+              ...processed,
+            };
+          },
+          ...toStaticData(props, processed.dereferenced),
+          _openapi: {
+            method:
+              entry.type === 'operation' || entry.type === 'webhook'
+                ? entry.item.method
+                : undefined,
+            webhook: entry.type === 'webhook',
+          },
         },
-      },
-    });
+      });
+    }
   }
 
   return {

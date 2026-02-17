@@ -1,5 +1,165 @@
 # next-docs-zeta
 
+## 16.6.3
+
+## 16.6.2
+
+## 16.6.1
+
+### Patch Changes
+
+- 00c9a0f: Remove default rerank value from mixedbread search
+
+## 16.6.0
+
+### Minor Changes
+
+- 9241992: **Support Markdown in search results**
+
+  This deprecates the old `contentWithHighlights` field in search results, the highlights are marked with Markdown instead (e.g. `Hello <mark>World</mark>`).
+
+### Patch Changes
+
+- 64a0057: [Remark Feedback] skip MDX elements by default to avoid interfering with component logic
+
+## 16.5.4
+
+### Patch Changes
+
+- 1ad8a38: Support server-side Mixedbread search API, deprecate client-side adapter
+- 3e8efb0: [remark-structure] hotfix filter MDX elements
+
+## 16.5.3
+
+### Patch Changes
+
+- be957f1: use `mdast-util-to-markdown` for accurate stringification
+
+## 16.5.2
+
+### Patch Changes
+
+- c22f6ee: bump tsdown
+
+## 16.5.1
+
+## 16.5.0
+
+### Minor Changes
+
+- 9ba1250: Support Universal Shiki configuration
+
+## 16.4.11
+
+### Patch Changes
+
+- a75a84d: fix duplicated transformer execution for fallback trees
+
+## 16.4.10
+
+### Patch Changes
+
+- 099fde7: [Page Tree] Extract index page from folder
+- 6fd7e63: handle circular reference in page tree
+
+## 16.4.9
+
+### Patch Changes
+
+- 48dd0c2: fix incorrect page tree output
+
+## 16.4.8
+
+### Patch Changes
+
+- 0025484: [Page Tree Builder] define the priority to resolve node owner
+
+## 16.4.7
+
+### Patch Changes
+
+- 5dec9d0: `useFumadocsLoader()` support other names of the serialized page tree
+
+## 16.4.6
+
+### Patch Changes
+
+- ea57dbf: Introduce `remark-feedback-block` plugin
+
+## 16.4.5
+
+## 16.4.4
+
+### Patch Changes
+
+- cdc97e0: Improve experience with Shiki Twoslash
+
+## 16.4.3
+
+### Patch Changes
+
+- f5dcb7c: fix `update()` source function types
+- 7e08b2f: Add `orama-cloud-legacy` search integration for old Orama Cloud users
+
+## 16.4.2
+
+### Patch Changes
+
+- 590d36a: Support `findSiblings()` page tree utility
+- 98d38ff: Support context-aware type-safe `slugs` function in `loader()`
+- 446631d: Support `<auto-files />` syntax in `remark-mdx-files` plugin
+- b16a32f: Switch to tsdown for bundling
+
+## 16.4.1
+
+## 16.4.0
+
+### Minor Changes
+
+- a3b7919: Update mixedbread integration API and docs
+
+## 16.3.2
+
+## 16.3.1
+
+## 16.3.0
+
+### Minor Changes
+
+- a69b060: Support both Base UI and Radix UI as base component libraries
+
+## 16.2.5
+
+### Patch Changes
+
+- 7292424: Support MDX preset in Fumadocs Core
+
+## 16.2.4
+
+### Patch Changes
+
+- da87713: Fix recursive checking on unknown types
+- d17499b: Fix `basePath` being ignored
+
+## 16.2.3
+
+### Patch Changes
+
+- ef8eb6c: Expose Zod schema for page & meta data
+- e0c4c3a: [Remark Image] Respect `title` in images
+- 4e2bca7: support `collapsible` in meta data
+
+## 16.2.2
+
+### Patch Changes
+
+- 464442b: Support client-side loader, including serialization layer
+- 6c668e1: Support absolute URLs in search fetch client
+
+## 16.2.1
+
+## 16.2.0
+
 ## 16.1.0
 
 ### Minor Changes
@@ -11,12 +171,12 @@
   For creating fully typed plugins (with custom properties), use the following pattern:
 
   ```ts
-  import { loader } from 'fumadocs-core/source';
-  import { docs } from 'fumadocs-mdx:collections/server';
-  import { lucideIconsPlugin } from 'fumadocs-core/source/lucide-icons';
+  import { loader } from "fumadocs-core/source";
+  import { docs } from "fumadocs-mdx:collections/server";
+  import { lucideIconsPlugin } from "fumadocs-core/source/lucide-icons";
 
   export const source = loader(docs.toFumadocsSource(), {
-    baseUrl: '/docs',
+    baseUrl: "/docs",
     plugins: ({ typedPlugin }) => [
       lucideIconsPlugin(),
       typedPlugin({
@@ -159,7 +319,7 @@
       export function createFromSource<S extends LoaderOutput<LoaderConfig>>(
         source: S,
         pageToIndexFn?: (page: InferPageType<S>) => Awaitable<AdvancedIndex>,
-        options?: Omit<Options<S>, 'buildIndex'>,
+        options?: Omit<Options<S>, "buildIndex">,
       ): SearchAPI;
       ```
     - remove deprecated parameters in `useSearch()`, pass them in the client object instead.
@@ -177,17 +337,17 @@
   When using Fumadocs' Orama Cloud integration, you need to use the new client instead:
 
   ```ts
-  import { sync } from 'fumadocs-core/search/orama-cloud';
-  import { OramaCloud } from '@orama/core';
+  import { sync } from "fumadocs-core/search/orama-cloud";
+  import { OramaCloud } from "@orama/core";
 
   // update this
   const orama = new OramaCloud({
-    projectId: '<project id>',
-    apiKey: '<private api key>',
+    projectId: "<project id>",
+    apiKey: "<private api key>",
   });
 
   await sync(orama, {
-    index: '<data source id>',
+    index: "<data source id>",
     documents: records,
   });
   ```
@@ -343,14 +503,14 @@
     source: {
       files: [
         {
-          path: 'folder/index.cn.mdx',
+          path: "folder/index.cn.mdx",
           // ...
         },
       ],
     },
   });
 
-  console.log(source.getPages('cn'));
+  console.log(source.getPages("cn"));
   // path: folder/index.mdx
   ```
 
@@ -363,14 +523,14 @@
     source: {
       files: [
         {
-          path: 'folder/index.cn.mdx',
+          path: "folder/index.cn.mdx",
           // ...
         },
       ],
     },
   });
 
-  console.log(source.getPages('cn'));
+  console.log(source.getPages("cn"));
   // path: folder/index.cn.mdx
   ```
 
@@ -437,27 +597,27 @@
 
   ```ts
   // lib/source.ts
-  import { defineI18n } from 'fumadocs-core/i18n';
+  import { defineI18n } from "fumadocs-core/i18n";
 
   export const i18n = defineI18n({
-    defaultLanguage: 'en',
-    languages: ['en', 'cn'],
+    defaultLanguage: "en",
+    languages: ["en", "cn"],
   });
   ```
 
   ```tsx
   // root layout
-  import { defineI18nUI } from 'fumadocs-ui/i18n';
-  import { i18n } from '@/lib/i18n';
+  import { defineI18nUI } from "fumadocs-ui/i18n";
+  import { i18n } from "@/lib/i18n";
 
   const { provider } = defineI18nUI(i18n, {
     translations: {
       cn: {
-        displayName: 'Chinese',
-        search: 'Translated Content',
+        displayName: "Chinese",
+        search: "Translated Content",
       },
       en: {
-        displayName: 'English',
+        displayName: "English",
       },
     },
   });
@@ -471,8 +631,8 @@
 
   ```ts
   // here!
-  import { createI18nMiddleware } from 'fumadocs-core/i18n/middleware';
-  import { i18n } from '@/lib/i18n';
+  import { createI18nMiddleware } from "fumadocs-core/i18n/middleware";
+  import { i18n } from "@/lib/i18n";
 
   export default createI18nMiddleware(i18n);
   ```
@@ -597,12 +757,12 @@
   The new usage passes options to a single object, improving the readability:
 
   ```ts
-  import { useDocsSearch } from 'fumadocs-core/search/client';
+  import { useDocsSearch } from "fumadocs-core/search/client";
 
   const { search, setSearch, query } = useDocsSearch({
-    type: 'fetch',
-    locale: 'optional',
-    tag: 'optional',
+    type: "fetch",
+    locale: "optional",
+    tag: "optional",
     delayMs: 100,
     allowEmpty: false,
   });
@@ -629,12 +789,12 @@
   Now we highly recommend to pass an index name to `sync()`:
 
   ```ts
-  import { algoliasearch } from 'algoliasearch';
-  import { sync } from 'fumadocs-core/search/algolia';
-  const client = algoliasearch('id', 'key');
+  import { algoliasearch } from "algoliasearch";
+  import { sync } from "fumadocs-core/search/algolia";
+  const client = algoliasearch("id", "key");
 
   void sync(client, {
-    indexName: 'document',
+    indexName: "document",
     documents: records,
   });
   ```
@@ -642,11 +802,11 @@
   For search client, pass them to `searchOptions`:
 
   ```tsx
-  'use client';
+  "use client";
 
-  import { liteClient } from 'algoliasearch/lite';
-  import type { SharedProps } from 'fumadocs-ui/components/dialog/search';
-  import SearchDialog from 'fumadocs-ui/components/dialog/search-algolia';
+  import { liteClient } from "algoliasearch/lite";
+  import type { SharedProps } from "fumadocs-ui/components/dialog/search";
+  import SearchDialog from "fumadocs-ui/components/dialog/search-algolia";
 
   const client = liteClient(appId, apiKey);
 
@@ -655,7 +815,7 @@
       <SearchDialog
         searchOptions={{
           client,
-          indexName: 'document',
+          indexName: "document",
         }}
         {...props}
         showAlgolia
@@ -719,8 +879,8 @@
   Migrate:
 
   ```ts
-  import { source } from '@/lib/source';
-  import { createFromSource } from 'fumadocs-core/search/server';
+  import { source } from "@/lib/source";
+  import { createFromSource } from "fumadocs-core/search/server";
 
   // from
   export const { GET } = createFromSource(
@@ -732,7 +892,7 @@
       id: page.url,
       structuredData: page.data.structuredData,
       // use your desired value, like page.slugs[0]
-      tag: '<value>',
+      tag: "<value>",
     }),
     {
       // options
@@ -749,7 +909,7 @@
         id: page.url,
         structuredData: page.data.structuredData,
         // use your desired value, like page.slugs[0]
-        tag: '<value>',
+        tag: "<value>",
       };
     },
     // other options
@@ -924,16 +1084,16 @@
   **before:**
 
   ````mdx
-  import { Tab, Tabs } from 'fumadocs-ui/components/tabs';
+  import { Tab, Tabs } from "fumadocs-ui/components/tabs";
 
   <Tabs items={["Tab 1", "Tab 2"]}>
 
   ```ts tab
-  console.log('A');
+  console.log("A");
   ```
 
   ```ts tab
-  console.log('B');
+  console.log("B");
   ```
 
   </Tabs>
@@ -942,14 +1102,14 @@
   **after:**
 
   ````mdx
-  import { Tab, Tabs } from 'fumadocs-ui/components/tabs';
+  import { Tab, Tabs } from "fumadocs-ui/components/tabs";
 
   ```ts tab="Tab 1"
-  console.log('A');
+  console.log("A");
   ```
 
   ```ts tab="Tab 2"
-  console.log('B');
+  console.log("B");
   ```
   ````
 
@@ -1131,11 +1291,11 @@
   Pass client option, it can be algolia, static, or fetch (default).
 
   ```ts
-  import { useDocsSearch } from 'fumadocs-core/search/client';
+  import { useDocsSearch } from "fumadocs-core/search/client";
 
   const { search, setSearch, query } = useDocsSearch({
-    type: 'fetch',
-    api: '/api/search', // optional
+    type: "fetch",
+    api: "/api/search", // optional
   });
   ```
 
@@ -1146,10 +1306,10 @@
   **migrate:**
 
   ```ts
-  import { useDocsSearch } from 'fumadocs-core/search/client';
+  import { useDocsSearch } from "fumadocs-core/search/client";
 
   const { search, setSearch, query } = useDocsSearch({
-    type: 'algolia',
+    type: "algolia",
     index,
     ...searchOptions,
   });
@@ -1334,7 +1494,7 @@
   Instead of
 
   ```tsx
-  import * as Base from 'fumadocs-core/toc';
+  import * as Base from "fumadocs-core/toc";
 
   return (
     <Base.TOCProvider>
@@ -1346,7 +1506,7 @@
   Use
 
   ```tsx
-  import * as Base from 'fumadocs-core/toc';
+  import * as Base from "fumadocs-core/toc";
 
   return (
     <Base.AnchorProvider>
@@ -1477,16 +1637,16 @@
 - 0a377a9: **Support writing code blocks as a `<Tab />` element.**
 
   ````mdx
-  import { Tabs } from 'fumadocs-ui/components/tabs';
+  import { Tabs } from "fumadocs-ui/components/tabs";
 
   <Tabs items={["Tab 1", "Tab 2"]}>
 
   ```js tab="Tab 1"
-  console.log('Hello');
+  console.log("Hello");
   ```
 
   ```js tab="Tab 2"
-  console.log('Hello');
+  console.log("Hello");
   ```
 
   </Tabs>
@@ -1677,7 +1837,7 @@
   Add the `remarkDocGen` plugin to your remark plugins.
 
   ```ts
-  import { remarkDocGen, fileGenerator } from 'fumadocs-docgen';
+  import { remarkDocGen, fileGenerator } from "fumadocs-docgen";
 
   remark().use(remarkDocGen, { generators: [fileGenerator()] });
   ```
@@ -1707,7 +1867,7 @@
   For `remarkInstall`, it remains the same:
 
   ```ts
-  import { remarkInstall } from 'fumadocs-docgen';
+  import { remarkInstall } from "fumadocs-docgen";
   ```
 
 - 2d8df75: Remove support for `getTableOfContentsFromPortableText`
@@ -1827,7 +1987,7 @@
 
   ````md
   ```ts /config/ {1}
-  const config = 'Hello';
+  const config = "Hello";
 
   something.call(config);
   ```
@@ -1838,7 +1998,7 @@
   ````md
   ```ts
   // [!code word:config]
-  const config = 'Hello'; // [!code highlight]
+  const config = "Hello"; // [!code highlight]
 
   something.call(config);
   ```
@@ -1897,13 +2057,13 @@
   It's no longer encouraged to access `allDocs` directly because they will not include `url` property anymore. Please consider `getPages` instead.
 
   ```ts
-  import { allDocs, allMeta } from 'contentlayer/generated';
-  import { createContentlayerSource } from 'next-docs-zeta/contentlayer';
-  import { loader } from 'next-docs-zeta/source';
+  import { allDocs, allMeta } from "contentlayer/generated";
+  import { createContentlayerSource } from "next-docs-zeta/contentlayer";
+  import { loader } from "next-docs-zeta/source";
 
   export const { getPage, pageTree, getPages } = loader({
-    baseUrl: '/docs',
-    rootDir: 'docs',
+    baseUrl: "/docs",
+    rootDir: "docs",
     source: createContentlayerSource(allMeta, allDocs),
   });
   ```
@@ -1924,13 +2084,13 @@
   The interface is now unified, you can easily plug in a content source.
 
   ```ts
-  import { map } from '@/.map';
-  import { createMDXSource } from 'next-docs-mdx';
-  import { loader } from 'next-docs-zeta/source';
+  import { map } from "@/.map";
+  import { createMDXSource } from "next-docs-mdx";
+  import { loader } from "next-docs-zeta/source";
 
   export const { getPage, getPages, pageTree } = loader({
-    baseUrl: '/docs',
-    rootDir: 'docs',
+    baseUrl: "/docs",
+    rootDir: "docs",
     source: createMDXSource(map),
   });
   ```
@@ -1974,7 +2134,7 @@
   If you want to include other document types, or override the output configuration, the `create` function can return the fields and document types you need.
 
   ```ts
-  import { create } from 'next-docs-zeta/contentlayer/configuration';
+  import { create } from "next-docs-zeta/contentlayer/configuration";
 
   const config = create(options);
 

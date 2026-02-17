@@ -1,30 +1,24 @@
-import {
-  cancel,
-  confirm,
-  group,
-  intro,
-  log,
-  outro,
-  select,
-} from '@clack/prompts';
+import { cancel, group, intro, log, outro, select } from '@clack/prompts';
 import picocolors from 'picocolors';
-import {
-  createComponentInstaller,
-  type Resolver,
-} from '@/utils/add/install-component';
-import type { LoadedConfig } from '@/config';
 import { install } from '@/commands/add';
+import type { RegistryClient } from '@/registry/client';
+import { ComponentInstaller } from '@/registry/installer';
+import { UIRegistries } from '@/commands/shared';
 
-export async function customise(resolver: Resolver, config: LoadedConfig) {
+interface TargetInfo {
+  target: string[];
+  replace: [string, string][];
+}
+
+export async function customise(client: RegistryClient) {
   intro(picocolors.bgBlack(picocolors.whiteBright('Customise Fumadocs UI')));
-  const installer = createComponentInstaller({
-    resolver,
-    config,
-  });
+  const config = client.config;
+  const installer = new ComponentInstaller(client);
+  const registry = UIRegistries[config.uiLibrary];
 
   const result = await group(
     {
-      target: () =>
+      layout: () =>
         select({
           message: 'What do you want to customise?',
           options: [
@@ -40,36 +34,61 @@ export async function customise(resolver: Resolver, config: LoadedConfig) {
             },
           ],
         }),
-      mode: (v) => {
-        if (v.results.target !== 'docs') return;
+      target: (v): Promise<TargetInfo | symbol> => {
+        if (v.results.layout !== 'docs')
+          return Promise.resolve({
+            target: [`${registry}/layouts/home`],
+            replace: [['fumadocs-ui/layouts/home', `@/components/layout/home`]],
+          });
 
-        return select({
+        return select<TargetInfo>({
           message: 'Which variant do you want to start from?',
           options: [
             {
               label: 'Start from minimal styles',
-              value: 'minimal',
               hint: 'for those who want to build their own variant from ground up.',
+              value: {
+                target: ['fumadocs/ui/layouts/docs-min'],
+                replace: [
+                  ['fumadocs-ui/layouts/docs', '@/components/layout/docs'],
+                  ['fumadocs-ui/layouts/docs/page', '@/components/layout/docs/page'],
+                ],
+              },
             },
             {
               label: 'Start from default layout',
-              value: 'full-default',
+              value: {
+                target: [`${registry}/layouts/docs`],
+                replace: [
+                  ['fumadocs-ui/layouts/docs', '@/components/layout/docs'],
+                  ['fumadocs-ui/layouts/docs/page', '@/components/layout/docs/page'],
+                ],
+              },
               hint: 'useful for adjusting small details.',
             },
             {
               label: 'Start from Notebook layout',
-              value: 'full-notebook',
+              value: {
+                target: [`${registry}/layouts/notebook`],
+                replace: [
+                  ['fumadocs-ui/layouts/notebook', '@/components/layout/notebook'],
+                  ['fumadocs-ui/layouts/notebook/page', '@/components/layout/notebook/page'],
+                ],
+              },
+              hint: 'useful for adjusting small details.',
+            },
+            {
+              label: 'Start from Flux layout',
+              value: {
+                target: [`${registry}/layouts/flux`],
+                replace: [
+                  ['fumadocs-ui/layouts/flux', '@/components/layout/flux'],
+                  ['fumadocs-ui/layouts/flux/page', '@/components/layout/flux/page'],
+                ],
+              },
               hint: 'useful for adjusting small details.',
             },
           ],
-        });
-      },
-      page: async (v) => {
-        if (v.results.target !== 'docs' || v.results.mode === 'minimal')
-          return false;
-
-        return confirm({
-          message: 'Do you want to customise the page component too?',
         });
       },
     },
@@ -81,39 +100,9 @@ export async function customise(resolver: Resolver, config: LoadedConfig) {
     },
   );
 
-  if (result.target === 'docs') {
-    const targets = [];
-    let pageAdded = false;
-    if (result.mode === 'minimal') {
-      targets.push('layouts/docs-min');
-      pageAdded = true;
-    } else {
-      if (result.page) {
-        targets.push('layouts/page');
-        pageAdded = true;
-      }
-
-      targets.push(
-        result.mode === 'full-default' ? 'layouts/docs' : 'layouts/notebook',
-      );
-    }
-
-    await install(targets, installer);
-    const maps: [string, string][] = [
-      ['fumadocs-ui/layouts/docs', '@/components/layout/docs'],
-    ];
-
-    if (pageAdded) {
-      maps.push(['fumadocs-ui/page', '@/components/layout/page']);
-    }
-
-    printNext(...maps);
-  }
-
-  if (result.target === 'home') {
-    await install(['layouts/home'], installer);
-    printNext(['fumadocs-ui/layouts/home', `@/components/layout/home`]);
-  }
+  const target = result.target as TargetInfo;
+  await install(target.target, installer);
+  printNext(...target.replace);
 
   outro(picocolors.bold('Have fun!'));
 }
@@ -126,9 +115,7 @@ function printNext(...maps: [from: string, to: string][]) {
       'You can check the installed components in `components`.',
       picocolors.dim('---'),
       'Open your `layout.tsx` files, replace the imports of components:',
-      ...maps.map(([from, to]) =>
-        picocolors.greenBright(`"${from}" -> "${to}"`),
-      ),
+      ...maps.map(([from, to]) => picocolors.greenBright(`"${from}" -> "${to}"`)),
     ].join('\n'),
   );
 }

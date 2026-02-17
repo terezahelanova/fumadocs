@@ -1,8 +1,8 @@
 import path from 'node:path';
-import { unified } from 'unified';
+import { type PluggableList, unified } from 'unified';
 import remarkStringify from 'remark-stringify';
 import remarkMdx from 'remark-mdx';
-import type { Compatible } from 'vfile';
+import { VFile } from 'vfile';
 import { dump } from 'js-yaml';
 import {
   buildStorage,
@@ -16,9 +16,10 @@ import { getRemarkPlugins } from '@/remark';
 import type { Root } from 'mdast';
 import remarkParse from 'remark-parse';
 import { remarkGfm } from 'fumadocs-core/mdx-plugins/remark-gfm';
+import remarkMath from 'remark-math';
 
 export interface OutputFile {
-  type: 'asset' | 'content' | 'custom';
+  type: 'asset' | 'content' | 'data' | 'custom';
 
   /**
    * paths relative to target folder, for example:
@@ -30,7 +31,22 @@ export interface OutputFile {
   content: string | Buffer<ArrayBufferLike>;
 }
 
-export type ConvertOptions = VaultStorageOptions;
+export interface ConvertOptions extends VaultStorageOptions {
+  /**
+   * add extra remark plugins to parse input Markdown files.
+   *
+   * by default, we include plugins to handle Obsidian-specific syntax, GFM and Maths equations.
+   */
+  remarkPlugins?: PluggableList;
+
+  /**
+   * modify the generated frontmatter data
+   */
+  transformFrontmatter?: (
+    frontmatter: Record<string, unknown>,
+    ctx: { file: ParsedFile },
+  ) => Record<string, unknown>;
+}
 
 declare module 'vfile' {
   interface DataMap {
@@ -40,7 +56,7 @@ declare module 'vfile' {
 
 export async function convertVaultFiles(
   rawFiles: VaultFile[],
-  options: ConvertOptions = {},
+  { remarkPlugins = [], transformFrontmatter, ...options }: ConvertOptions = {},
 ): Promise<OutputFile[]> {
   const storage = buildStorage(rawFiles, options);
   const resolver = buildResolver(storage);
@@ -49,6 +65,8 @@ export async function convertVaultFiles(
   const processor = unified()
     .use(remarkParse)
     .use(remarkGfm)
+    .use(remarkMath)
+    .use(remarkPlugins)
     .use(getRemarkPlugins(storage, resolver));
   const stringifier = processor().use(remarkMdx).use(remarkStringify);
 
@@ -63,24 +81,36 @@ export async function convertVaultFiles(
       return;
     }
 
-    const vfile: Compatible = {
+    if (file.format === 'data') {
+      output.push({
+        type: 'data',
+        path: file.outPath,
+        content: file.content,
+      });
+
+      return;
+    }
+
+    const vfile = new VFile({
       path: file.path,
-      value: String(file.content),
+      value: file.content,
       data: {
         source: file,
       },
-    };
+    });
 
     const mdast = await processor.run(processor.parse(vfile), vfile);
     const string = stringifier.stringify(mdast as Root);
-    const frontmatter = dump({
+    let frontmatter: Record<string, unknown> = {
+      ...file.frontmatter,
       title: path.basename(file.path, path.extname(file.path)),
-    }).trim();
+    };
+    if (transformFrontmatter) frontmatter = transformFrontmatter(frontmatter, { file });
 
     output.push({
       type: 'content',
       path: file.outPath,
-      content: `---\n${frontmatter}\n---\n${string}`,
+      content: `---\n${dump(frontmatter).trim()}\n---\n${string}`,
     });
   }
 

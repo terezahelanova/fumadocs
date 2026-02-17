@@ -1,10 +1,11 @@
-import { useRef, useState } from 'react';
+import { type DependencyList, useRef, useState } from 'react';
 import { useDebounce } from '@/utils/use-debounce';
 import { type FetchOptions } from '@/search/client/fetch';
 import { useOnChange } from '@/utils/use-on-change';
 import { type StaticOptions } from '@/search/client/static';
 import { type AlgoliaOptions } from '@/search/client/algolia';
 import { type OramaCloudOptions } from '@/search/client/orama-cloud';
+import { type OramaCloudLegacyOptions } from '@/search/client/orama-cloud-legacy';
 import { type MixedbreadOptions } from '@/search/client/mixedbread';
 import { type MeilisearchOptions } from '@/search/client/meilisearch';
 import type { SortedResult } from '@/search';
@@ -33,15 +34,20 @@ export type Client =
       type: 'orama-cloud';
     } & OramaCloudOptions)
   | ({
+      type: 'orama-cloud-legacy';
+    } & OramaCloudLegacyOptions)
+  | ({
       type: 'meilisearch';
     } & MeilisearchOptions)
   | ({
       type: 'mixedbread';
     } & MixedbreadOptions);
 
-function isDifferentDeep(a: unknown, b: unknown): boolean {
+function isDeepEqual(a: unknown, b: unknown): boolean {
+  if (a === b) return true;
+
   if (Array.isArray(a) && Array.isArray(b)) {
-    return b.length !== a.length || a.some((v, i) => isDifferentDeep(v, b[i]));
+    return b.length === a.length && a.every((v, i) => isDeepEqual(v, b[i]));
   }
 
   if (typeof a === 'object' && a && typeof b === 'object' && b) {
@@ -49,20 +55,21 @@ function isDifferentDeep(a: unknown, b: unknown): boolean {
     const bKeys = Object.keys(b);
 
     return (
-      aKeys.length !== bKeys.length ||
-      aKeys.some((key) =>
-        isDifferentDeep(a[key as keyof object], b[key as keyof object]),
+      aKeys.length === bKeys.length &&
+      aKeys.every(
+        (key) =>
+          Object.hasOwn(b, key) && isDeepEqual(a[key as keyof object], b[key as keyof object]),
       )
     );
   }
 
-  return a !== b;
+  return false;
 }
 
 /**
  * Provide a hook to query different official search clients.
  *
- * Note: it will re-query when its parameters changed, make sure to use `useCallback()` on functions passed to this hook.
+ * Note: it will re-query when its parameters changed, make sure to use `useMemo()` on `clientOptions` or define `deps` array.
  */
 export function useDocsSearch(
   clientOptions: Client & {
@@ -80,6 +87,7 @@ export function useDocsSearch(
      */
     allowEmpty?: boolean;
   },
+  deps?: DependencyList,
 ): UseDocsSearch {
   const { delayMs = 100, allowEmpty = false, ...client } = clientOptions;
 
@@ -91,7 +99,7 @@ export function useDocsSearch(
   const onStart = useRef<() => void>(undefined);
 
   useOnChange(
-    [client, debouncedValue],
+    [deps ?? clientOptions, debouncedValue],
     () => {
       if (onStart.current) {
         onStart.current();
@@ -106,38 +114,38 @@ export function useDocsSearch(
 
       async function run(): Promise<SortedResult[] | 'empty'> {
         if (debouncedValue.length === 0 && !allowEmpty) return 'empty';
-
-        if (client.type === 'fetch') {
-          const { fetchDocs } = await import('./client/fetch');
-          return fetchDocs(debouncedValue, client);
+        switch (client.type) {
+          case 'fetch': {
+            const { fetchDocs } = await import('./client/fetch');
+            return fetchDocs(debouncedValue, client);
+          }
+          case 'algolia': {
+            const { searchDocs } = await import('./client/algolia');
+            return searchDocs(debouncedValue, client);
+          }
+          case 'orama-cloud': {
+            const { searchDocs } = await import('./client/orama-cloud');
+            return searchDocs(debouncedValue, client);
+          }
+          case 'orama-cloud-legacy': {
+            const { searchDocs } = await import('./client/orama-cloud-legacy');
+            return searchDocs(debouncedValue, client);
+          }
+          case 'mixedbread': {
+            const { search } = await import('./client/mixedbread');
+            return search(debouncedValue, client);
+          }
+          case 'static': {
+            const { search } = await import('./client/static');
+            return search(debouncedValue, client);
+          }
+          case 'meilisearch': {
+            const { searchDocs } = await import('./client/meilisearch');
+            return searchDocs(debouncedValue, client);
+          }
+          default:
+            throw new Error('unknown search client');
         }
-
-        if (client.type === 'algolia') {
-          const { searchDocs } = await import('./client/algolia');
-          return searchDocs(debouncedValue, client);
-        }
-
-        if (client.type === 'orama-cloud') {
-          const { searchDocs } = await import('./client/orama-cloud');
-          return searchDocs(debouncedValue, client);
-        }
-
-        if (client.type === 'static') {
-          const { search } = await import('./client/static');
-          return search(debouncedValue, client);
-        }
-
-        if (client.type === 'mixedbread') {
-          const { search } = await import('./client/mixedbread');
-          return search(debouncedValue, client);
-        }
-
-        if (client.type === 'meilisearch') {
-          const { searchDocs } = await import('./client/meilisearch');
-          return searchDocs(debouncedValue, client);
-        }
-
-        throw new Error('unknown search client');
       }
 
       void run()
@@ -154,7 +162,7 @@ export function useDocsSearch(
           setIsLoading(false);
         });
     },
-    isDifferentDeep,
+    deps ? undefined : (a, b) => !isDeepEqual(a, b),
   );
 
   return { search, setSearch, query: { isLoading, data: results, error } };

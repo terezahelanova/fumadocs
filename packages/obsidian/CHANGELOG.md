@@ -1,5 +1,46 @@
 # fumadocs-obsidian
 
+## 0.0.11
+
+### Patch Changes
+
+- c22f6ee: bump tsdown
+- Updated dependencies [c22f6ee]
+  - fumadocs-core@16.5.2
+
+## 0.0.10
+
+### Patch Changes
+
+- 3b216f5: Allow data files in obsidian vaults
+- Updated dependencies [48dd0c2]
+  - fumadocs-core@16.4.9
+
+## 0.0.9
+
+### Patch Changes
+
+- d7c2752: support custom frontmatter function & preserve by default
+  - fumadocs-core@16.4.5
+
+## 0.0.8
+
+### Patch Changes
+
+- b9a3d31: Support Math syntax & custom remark plugins
+
+## 0.0.7
+
+### Patch Changes
+
+- b16a32f: Switch to tsdown for bundling
+- dd7498f: fix slugification
+- Updated dependencies [590d36a]
+- Updated dependencies [98d38ff]
+- Updated dependencies [446631d]
+- Updated dependencies [b16a32f]
+  - fumadocs-core@16.4.2
+
 ## 0.0.6
 
 ### Patch Changes

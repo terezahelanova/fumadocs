@@ -1,63 +1,67 @@
 {
   "name": "fumadocs-twoslash",
-  "version": "3.1.10",
+  "version": "3.1.13",
   "description": "Typescript Twoslash Integration for Fumadocs",
   "keywords": [
+    "Docs",
     "NextJs",
-    "fumadocs",
-    "Docs"
+    "fumadocs"
   ],
   "homepage": "https://fumadocs.dev",
-  "repository": "github:fuma-nama/fumadocs",
   "license": "MIT",
   "author": "Fuma Nama",
-  "type": "module",
-  "exports": {
-    "./twoslash.css": "./styles/twoslash.css",
-    ".": {
-      "import": "./dist/index.js",
-      "types": "./dist/index.d.ts"
-    },
-    "./ui": {
-      "import": "./dist/ui/index.js",
-      "types": "./dist/ui/index.d.ts"
-    },
-    "./cache-fs": {
-      "import": "./dist/cache-fs.js",
-      "types": "./dist/cache-fs.d.ts"
-    }
-  },
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
+  "repository": "github:fuma-nama/fumadocs",
   "files": [
     "dist/*",
     "styles/*"
   ],
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    "./twoslash.css": "./styles/twoslash.css",
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./ui": {
+      "types": "./dist/ui/index.d.ts",
+      "import": "./dist/ui/index.js"
+    },
+    "./cache-fs": {
+      "types": "./dist/cache-fs.d.ts",
+      "import": "./dist/cache-fs.js"
+    }
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
-    "build": "tsup",
+    "build": "tsdown",
     "clean": "rimraf dist",
-    "dev": "tsup --watch",
+    "dev": "tsdown --watch",
     "lint": "eslint .",
     "types:check": "tsc --noEmit"
   },
   "dependencies": {
     "@radix-ui/react-popover": "^1.1.15",
-    "@shikijs/twoslash": "^3.15.0",
+    "@shikijs/twoslash": "^3.22.0",
     "mdast-util-from-markdown": "^2.0.2",
     "mdast-util-gfm": "^3.1.0",
-    "mdast-util-to-hast": "^13.2.0",
-    "shiki": "^3.15.0",
-    "tailwind-merge": "^3.4.0",
-    "twoslash": "^0.3.4"
+    "mdast-util-to-hast": "^13.2.1",
+    "shiki": "^3.22.0",
+    "tailwind-merge": "^3.4.1",
+    "twoslash": "^0.3.6"
   },
   "devDependencies": {
     "@types/hast": "^3.0.4",
     "@types/mdast": "^4.0.4",
-    "@types/node": "24.10.1",
-    "@types/react": "^19.2.5",
+    "@types/node": "25.2.3",
+    "@types/react": "^19.2.14",
     "eslint-config-custom": "workspace:*",
     "fumadocs-ui": "workspace:*",
-    "tsconfig": "workspace:*"
+    "tsconfig": "workspace:*",
+    "tsdown": "^0.20.3"
   },
   "peerDependencies": {
     "@types/react": "*",
@@ -68,8 +72,5 @@
     "@types/react": {
       "optional": true
     }
-  },
-  "publishConfig": {
-    "access": "public"
   }
 }

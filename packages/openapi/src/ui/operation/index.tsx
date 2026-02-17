@@ -5,23 +5,12 @@ import type {
   RenderContext,
   SecuritySchemeObject,
 } from '@/types';
-import {
-  createMethod,
-  methodKeys,
-  type NoReference,
-  type ResolvedSchema,
-} from '@/utils/schema';
+import { createMethod, methodKeys, type NoReference, type ResolvedSchema } from '@/utils/schema';
 import { idToTitle } from '@/utils/id-to-title';
 import { Schema } from '../schema';
-import { APIExample, getAPIExamples } from '@/ui/operation/example-panel';
+import { UsageTabs } from '@/ui/operation/usage-tabs';
 import { MethodLabel } from '@/ui/components/method-label';
-import { getTypescriptSchema } from '@/utils/get-typescript-schema';
-import {
-  CopyResponseTypeScript,
-  SelectTab,
-  SelectTabs,
-  SelectTabTrigger,
-} from './client';
+import { CopyResponseTypeScript, SelectTab, SelectTabs, SelectTabTrigger } from './client';
 import {
   AccordionContent,
   AccordionHeader,
@@ -30,9 +19,11 @@ import {
   AccordionTrigger,
 } from '@/ui/components/accordion';
 import { isMediaTypeSupported } from '@/requests/media/adapter';
-import { cn } from 'fumadocs-ui/utils/cn';
+import { cn } from '@/utils/cn';
 import { APIPlayground } from '@/playground';
-import { OperationProviderLazy } from '../contexts/operation.lazy';
+import { getExampleRequests, RequestTabs } from './request-tabs';
+import { UsageTabsProviderLazy } from './usage-tabs/lazy';
+import { ServerProviderLazy } from '../contexts/api.lazy';
 
 const ParamTypes = {
   path: 'Path Parameters',
@@ -46,7 +37,8 @@ export async function Operation({
   path,
   method,
   ctx,
-  hasHead,
+  showTitle,
+  showDescription,
   headingLevel = 2,
 }: {
   type?: 'webhook' | 'operation';
@@ -54,7 +46,8 @@ export async function Operation({
   method: MethodInformation;
   ctx: RenderContext;
 
-  hasHead?: boolean;
+  showTitle?: boolean;
+  showDescription?: boolean;
   headingLevel?: number;
 }) {
   const {
@@ -62,38 +55,39 @@ export async function Operation({
   } = ctx;
   const body = method.requestBody;
   let headNode: ReactNode = null;
+  const descriptionNode =
+    showDescription && method.description && ctx.renderMarkdown(method.description);
   let bodyNode: ReactNode = null;
   let authNode: ReactNode = null;
   let responseNode: ReactNode = null;
   let callbacksNode: ReactNode = null;
 
-  if (hasHead) {
-    const title =
-      method.summary ??
-      (method.operationId ? idToTitle(method.operationId) : path);
+  if (showTitle) {
+    const title = method.summary || (method.operationId ? idToTitle(method.operationId) : path);
 
-    headNode = (
-      <>
-        {ctx.renderHeading(headingLevel, title)}
-        {method.description && ctx.renderMarkdown(method.description)}
-      </>
-    );
+    headNode = ctx.renderHeading(headingLevel, title);
     headingLevel++;
   }
 
-  const contentTypes = body ? Object.entries(body.content) : null;
+  const contentTypes = body?.content ? Object.entries(body.content) : null;
 
   if (body && contentTypes && contentTypes.length > 0) {
-    const [defaultValue] = contentTypes[0];
+    const items = contentTypes.map(([key]) => ({
+      label: <code className="text-xs">{key}</code>,
+      value: key,
+    }));
 
     bodyNode = (
-      <SelectTabs defaultValue={defaultValue}>
-        <div className="flex gap-2 items-end justify-between">
-          {ctx.renderHeading(headingLevel, 'Request Body')}
-          <SelectTabTrigger
-            items={contentTypes.map(([key]) => key)}
-            className="mb-4"
-          />
+      <SelectTabs defaultValue={items[0].value}>
+        <div className="flex gap-2 items-center justify-between mt-10">
+          {ctx.renderHeading(headingLevel, 'Request Body', {
+            className: 'my-0!',
+          })}
+          {contentTypes.length > 1 ? (
+            <SelectTabTrigger items={items} className="font-medium" />
+          ) : (
+            <p className="text-fd-muted-foreground not-prose">{items[0].label}</p>
+          )}
         </div>
         {body.description && ctx.renderMarkdown(body.description)}
         {contentTypes.map(([type, content]) => {
@@ -104,10 +98,12 @@ export async function Operation({
           return (
             <SelectTab key={type} value={type}>
               <Schema
-                name="body"
-                as="body"
+                client={{
+                  name: 'body',
+                  as: 'body',
+                  required: body.required,
+                }}
                 root={(content.schema ?? {}) as ResolvedSchema}
-                required={body.required}
                 readOnly={method.method === 'GET'}
                 writeOnly={method.method !== 'GET'}
                 ctx={ctx}
@@ -128,12 +124,7 @@ export async function Operation({
 
         <Accordions type="multiple">
           {statuses.map((status) => (
-            <ResponseAccordion
-              key={status}
-              status={status}
-              operation={method}
-              ctx={ctx}
-            />
+            <ResponseAccordion key={status} status={status} operation={method} ctx={ctx} />
           ))}
         </Accordions>
       </>
@@ -151,17 +142,20 @@ export async function Operation({
           {params.map((param) => (
             <Schema
               key={param.name}
-              name={param.name}
+              client={{
+                name: param.name!,
+                required: param.required,
+              }}
               root={
-                {
-                  ...param.schema,
-                  description: param.description ?? param.schema?.description,
-                  deprecated:
-                    (param.deprecated ?? false) ||
-                    (param.schema?.deprecated ?? false),
-                } as ResolvedSchema
+                typeof param.schema === 'object'
+                  ? ({
+                      ...param.schema,
+                      description: param.description ?? param.schema?.description,
+                      deprecated:
+                        (param.deprecated ?? false) || (param.schema?.deprecated ?? false),
+                    } as ResolvedSchema)
+                  : (param.schema as ResolvedSchema)
               }
-              required={param.required}
               readOnly={method.method === 'GET'}
               writeOnly={method.method !== 'GET'}
               ctx={ctx}
@@ -178,30 +172,43 @@ export async function Operation({
 
   if (type === 'operation' && securities.length > 0) {
     const securitySchemes = dereferenced.components?.securitySchemes;
-    const names = securities.map((security) =>
-      Object.keys(security).join(' & '),
-    );
+    const items = securities.map((security, i) => {
+      return {
+        value: String(i),
+        label: (
+          <div className="flex flex-col text-xs min-w-0">
+            {Object.entries(security).map(([key, scopes]) => (
+              <code key={key} className="truncate">
+                <span className="font-medium">{key}</span>{' '}
+                {scopes.length > 0 && (
+                  <span className="text-fd-muted-foreground">{scopes.join(', ')}</span>
+                )}
+              </code>
+            ))}
+          </div>
+        ),
+      };
+    });
 
     authNode = (
-      <SelectTabs defaultValue={names[0]}>
-        <div className="flex items-end justify-between gap-2">
-          {ctx.renderHeading(headingLevel, 'Authorization')}
-          <SelectTabTrigger items={names} className="mb-4" />
+      <SelectTabs defaultValue={items[0].value}>
+        <div className="flex items-start justify-between gap-2 mt-10">
+          {ctx.renderHeading(headingLevel, 'Authorization', {
+            className: 'my-0!',
+          })}
+          {items.length > 1 ? (
+            <SelectTabTrigger items={items} />
+          ) : (
+            <div className="not-prose">{items[0].label}</div>
+          )}
         </div>
         {securities.map((security, i) => (
-          <SelectTab key={i} value={names[i]}>
+          <SelectTab key={i} value={items[i].value}>
             {Object.entries(security).map(([key, scopes]) => {
               const scheme = securitySchemes?.[key];
               if (!scheme) return;
 
-              return (
-                <AuthScheme
-                  key={key}
-                  scheme={scheme}
-                  scopes={scopes}
-                  ctx={ctx}
-                />
-              );
+              return <AuthScheme key={key} scheme={scheme} scopes={scopes} ctx={ctx} />;
             })}
           </SelectTab>
         ))}
@@ -211,24 +218,26 @@ export async function Operation({
 
   const callbacks = method.callbacks ? Object.entries(method.callbacks) : null;
   if (callbacks && callbacks.length > 0) {
-    const [defaultValue] = callbacks[0];
+    const items = callbacks.map(([key]) => ({
+      label: <code className="text-xs">{key}</code>,
+      value: key,
+    }));
 
     callbacksNode = (
-      <SelectTabs defaultValue={defaultValue}>
-        <div className="flex justify-between gap-2 items-end">
-          {ctx.renderHeading(headingLevel, 'Callbacks')}
-          <SelectTabTrigger
-            items={callbacks.map(([key]) => key)}
-            className="mb-4"
-          />
+      <SelectTabs defaultValue={items[0].value}>
+        <div className="flex justify-between gap-2 items-end mt-10">
+          {ctx.renderHeading(headingLevel, 'Callbacks', {
+            className: 'my-0!',
+          })}
+          {callbacks.length > 1 ? (
+            <SelectTabTrigger items={items} className="font-medium" />
+          ) : (
+            <p className="text-fd-muted-foreground not-prose">{items[0].label}</p>
+          )}
         </div>
         {callbacks.map(([name, callback]) => (
           <SelectTab key={name} value={name}>
-            <WebhookCallback
-              callback={callback}
-              ctx={ctx}
-              headingLevel={headingLevel}
-            />
+            <WebhookCallback callback={callback} ctx={ctx} headingLevel={headingLevel} />
           </SelectTab>
         ))}
       </SelectTabs>
@@ -239,33 +248,29 @@ export async function Operation({
   if (type === 'operation') {
     renderOperationLayout ??= (slots) => {
       return (
-        <div
-          className="flex flex-col gap-x-6 gap-y-4 xl:flex-row xl:items-start"
-          style={
-            {
-              '--fd-api-info-top':
-                'calc(12px + var(--fd-nav-height) + var(--fd-banner-height) + var(--fd-tocnav-height, 0px))',
-            } as object
-          }
-        >
+        <div className="flex flex-col gap-x-6 gap-y-4 @4xl:flex-row @4xl:items-start">
           <div className="min-w-0 flex-1">
             {slots.header}
             {slots.apiPlayground}
+            {slots.description}
             {slots.authSchemes}
             {slots.paremeters}
             {slots.body}
             {slots.responses}
             {slots.callbacks}
           </div>
-          {slots.apiExample}
+          <div className="@4xl:sticky @4xl:top-[calc(var(--fd-docs-row-1,2rem)+1rem)] @4xl:w-[400px]">
+            {slots.apiExample}
+          </div>
         </div>
       );
     };
 
     const playgroundEnabled = ctx.playground?.enabled ?? true;
-    const content = await renderOperationLayout(
+    let content = await renderOperationLayout(
       {
         header: headNode,
+        description: descriptionNode,
         authSchemes: authNode,
         body: bodyNode,
         callbacks: callbacksNode,
@@ -281,41 +286,52 @@ export async function Operation({
             </code>
           </div>
         ),
-        apiExample: <APIExample method={method} ctx={ctx} />,
+        apiExample: <UsageTabs method={method} ctx={ctx} />,
       },
       ctx,
       method,
     );
 
-    return (
-      <OperationProviderLazy
-        defaultExampleId={
-          method['x-exclusiveCodeSample'] ?? method['x-selectedCodeSample']
-        }
+    content = (
+      <UsageTabsProviderLazy
+        defaultExampleId={method['x-exclusiveCodeSample'] ?? method['x-selectedCodeSample']}
         route={path}
-        examples={getAPIExamples(path, method, ctx)}
+        examples={getExampleRequests(path, method, ctx)}
       >
         {content}
-      </OperationProviderLazy>
+      </UsageTabsProviderLazy>
     );
+    if (method.servers) {
+      content = <ServerProviderLazy servers={method.servers}>{content}</ServerProviderLazy>;
+    }
+
+    return content;
   } else {
     renderWebhookLayout ??= (slots) => (
-      <div>
-        {slots.header}
-        {slots.authSchemes}
-        {slots.paremeters}
-        {slots.body}
-        {slots.responses}
-        {slots.callbacks}
+      <div className="flex flex-col-reverse gap-x-6 gap-y-4 @4xl:flex-row @4xl:items-start">
+        <div className="min-w-0 flex-1">
+          {slots.header}
+          {slots.description}
+          {slots.authSchemes}
+          {slots.paremeters}
+          {slots.body}
+          {slots.responses}
+          {slots.callbacks}
+        </div>
+        <div className="@4xl:sticky @4xl:top-[calc(var(--fd-docs-row-1,2rem)+1rem)] @4xl:w-[400px]">
+          {slots.requests}
+        </div>
       </div>
     );
     return renderWebhookLayout({
       header: headNode,
+      description: descriptionNode,
       authSchemes: authNode,
       body: bodyNode,
       callbacks: callbacksNode,
       paremeters: parameterNode,
       responses: responseNode,
+      requests: <RequestTabs path={path} operation={method} ctx={ctx} />,
     });
   }
 }
@@ -330,22 +346,23 @@ async function ResponseAccordion({
   ctx: RenderContext;
 }) {
   const response = operation.responses![status];
-  const { generateTypeScriptSchema } = ctx;
   const contentTypes = response.content ? Object.entries(response.content) : [];
   let wrapper = (children: ReactNode) => children;
   let selectorNode: ReactNode = null;
 
   if (contentTypes.length > 0) {
-    const [defaultValue] = contentTypes[0];
+    const items = contentTypes.map(([key]) => ({
+      label: <code className="text-xs">{key}</code>,
+      value: key,
+    }));
+
     selectorNode =
-      contentTypes.length === 1 ? (
-        <p className="text-sm text-fd-muted-foreground">{defaultValue}</p>
+      items.length === 1 ? (
+        <p className="text-fd-muted-foreground not-prose">{items[0].label}</p>
       ) : (
-        <SelectTabTrigger items={contentTypes.map(([key]) => key)} />
+        <SelectTabTrigger items={items} />
       );
-    wrapper = (children) => (
-      <SelectTabs defaultValue={defaultValue}>{children}</SelectTabs>
-    );
+    wrapper = (children) => <SelectTabs defaultValue={items[0].value}>{children}</SelectTabs>;
   }
 
   return wrapper(
@@ -356,29 +373,27 @@ async function ResponseAccordion({
       </AccordionHeader>
       <AccordionContent className="ps-4.5">
         {response.description && (
-          <div className="prose-no-margin">
-            {ctx.renderMarkdown(response.description)}
-          </div>
+          <div className="prose-no-margin mb-2">{ctx.renderMarkdown(response.description)}</div>
         )}
         {contentTypes.map(async ([type, resType]) => {
           const schema = resType.schema;
           let ts: string | undefined;
 
-          if (generateTypeScriptSchema) {
-            ts = await generateTypeScriptSchema(operation, status);
-          } else if (generateTypeScriptSchema === undefined && schema) {
-            ts = await getTypescriptSchema(schema, ctx);
+          if (ctx.generateTypeScriptSchema) {
+            ts = await ctx.generateTypeScriptSchema(operation, status, type, ctx);
           }
 
           return (
-            <SelectTab key={type} value={type} className="my-2">
+            <SelectTab key={type} value={type} className="mb-2">
               {ts && <CopyResponseTypeScript code={ts} />}
               {schema && (
                 <div className="border px-3 py-2 rounded-lg">
                   <Schema
-                    name="response"
+                    client={{
+                      name: 'response',
+                      as: 'body',
+                    }}
                     root={schema as ResolvedSchema}
-                    as="body"
                     readOnly
                     ctx={ctx}
                   />
@@ -411,10 +426,7 @@ function WebhookCallback({
           if (!operation) return null;
 
           return (
-            <div
-              key={method}
-              className="border p-3 my-2 prose-no-margin rounded-lg"
-            >
+            <div key={method} className="border p-3 my-2 @container prose-no-margin rounded-lg">
               <Operation
                 type="webhook"
                 path={path}
@@ -448,39 +460,29 @@ function AuthScheme({
   scopes: string[];
   ctx: RenderContext;
 }) {
-  const scopeElement =
-    scopes.length > 0 ? (
-      <p>
-        Scope: <code>{scopes.join(', ')}</code>
-      </p>
-    ) : null;
-
   if (schema.type === 'http' || schema.type === 'oauth2') {
     return (
       <AuthProperty
         name="Authorization"
         type={
-          schema.type === 'http' && schema.scheme === 'basic'
-            ? `Basic <token>`
-            : 'Bearer <token>'
+          schema.type === 'http' && schema.scheme === 'basic' ? `Basic <token>` : 'Bearer <token>'
         }
+        scopes={scopes}
       >
         {schema.description && ctx.renderMarkdown(schema.description)}
         <p>
           In: <code>header</code>
         </p>
-        {scopeElement}
       </AuthProperty>
     );
   }
 
   if (schema.type === 'apiKey') {
     return (
-      <AuthProperty name={schema.name} type="<token>">
+      <AuthProperty name={schema.name!} type="<token>" scopes={scopes}>
         {schema.description && ctx.renderMarkdown(schema.description)}
         <p>
           In: <code>{schema.in}</code>
-          {scopeElement}
         </p>
       </AuthProperty>
     );
@@ -488,9 +490,8 @@ function AuthScheme({
 
   if (schema.type === 'openIdConnect') {
     return (
-      <AuthProperty name="OpenID Connect" type="<token>">
+      <AuthProperty name="OpenID Connect" type="<token>" scopes={scopes}>
         {schema.description && ctx.renderMarkdown(schema.description)}
-        {scopeElement}
       </AuthProperty>
     );
   }
@@ -499,23 +500,27 @@ function AuthScheme({
 function AuthProperty({
   name,
   type,
+  scopes = [],
+  className,
   ...props
 }: ComponentProps<'div'> & {
   name: string;
   type: string;
+  scopes?: string[];
 }) {
   return (
-    <div
-      className={cn('text-sm border-t py-4 first:border-t-0', props.className)}
-    >
+    <div className={cn('text-sm border-t my-4 first:border-t-0', className)}>
       <div className="flex flex-wrap items-center gap-3 not-prose">
         <span className="font-medium font-mono text-fd-primary">{name}</span>
-        <span className="text-sm font-mono text-fd-muted-foreground">
-          {type}
-        </span>
+        <span className="text-sm font-mono text-fd-muted-foreground">{type}</span>
       </div>
       <div className="prose-no-margin pt-2.5 empty:hidden">
         {props.children}
+        {scopes.length > 0 && (
+          <p>
+            Scope: <code>{scopes.join(', ')}</code>
+          </p>
+        )}
       </div>
     </div>
   );

@@ -13,6 +13,7 @@ export interface MetaData {
   root?: boolean | undefined;
   pages?: string[] | undefined;
   defaultOpen?: boolean | undefined;
+  collapsible?: boolean | undefined;
 
   description?: string | undefined;
 }
@@ -82,34 +83,70 @@ export function multiple<T extends Record<string, Source>>(sources: T) {
   return out;
 }
 
-/**
- * map virtual files in source
- */
-export function map<Config extends SourceConfig>(source: Source<Config>) {
+export function source<Page extends PageData, Meta extends MetaData>(config: {
+  pages: VirtualPage<Page>[];
+  metas: VirtualMeta<Meta>[];
+}): Source<{
+  pageData: Page;
+  metaData: Meta;
+}> {
   return {
-    page<$Page extends PageData>(
-      fn: (entry: VirtualPage<Config['pageData']>) => VirtualPage<$Page>,
-    ): Source<{
-      pageData: $Page;
-      metaData: Config['metaData'];
-    }> {
-      return {
-        files: source.files.map((file) =>
-          file.type === 'page' ? fn(file) : file,
-        ),
-      };
+    files: [...config.pages, ...config.metas],
+  };
+}
+
+export interface _SourceUpdate_<Config extends SourceConfig> {
+  files: <Page extends PageData, Meta extends MetaData>(
+    fn: (files: VirtualFile<Config>[]) => (VirtualPage<Page> | VirtualMeta<Meta>)[],
+  ) => _SourceUpdate_<{
+    pageData: Page;
+    metaData: Meta;
+  }>;
+  page: <V extends PageData>(
+    fn: (page: VirtualPage<Config['pageData']>) => VirtualPage<V>,
+  ) => _SourceUpdate_<{
+    pageData: V;
+    metaData: Config['metaData'];
+  }>;
+
+  meta: <V extends MetaData>(
+    fn: (meta: VirtualMeta<Config['metaData']>) => VirtualMeta<V>,
+  ) => _SourceUpdate_<{
+    pageData: Config['pageData'];
+    metaData: V;
+  }>;
+  build: () => Source<Config>;
+}
+
+/**
+ * update a source object in-place.
+ */
+export function update<Config extends SourceConfig>(
+  source: Source<Config>,
+): _SourceUpdate_<Config> {
+  return {
+    files(fn) {
+      source.files = fn(source.files);
+      return this as _SourceUpdate_<never>;
     },
-    meta<$Meta extends MetaData>(
-      fn: (entry: VirtualMeta<Config['metaData']>) => VirtualMeta<$Meta>,
-    ): Source<{
-      pageData: Config['pageData'];
-      metaData: $Meta;
-    }> {
-      return {
-        files: source.files.map((file) =>
-          file.type === 'meta' ? fn(file) : file,
-        ),
-      };
+    page(fn) {
+      for (let i = 0; i < source.files.length; i++) {
+        const file = source.files[i];
+        if (file.type === 'page') source.files[i] = fn(file);
+      }
+
+      return this as _SourceUpdate_<never>;
+    },
+    meta(fn) {
+      for (let i = 0; i < source.files.length; i++) {
+        const file = source.files[i];
+        if (file.type === 'meta') source.files[i] = fn(file);
+      }
+
+      return this as _SourceUpdate_<never>;
+    },
+    build() {
+      return source;
     },
   };
 }

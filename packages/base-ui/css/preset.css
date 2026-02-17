@@ -1,0 +1,9 @@
+@import './lib/base.css';
+
+/* TODO: remove them on next major */
+@import './generated/flux.css';
+@import './generated/docs.css';
+@import './generated/home.css';
+@import './generated/notebook.css';
+
+@import './generated/shared.css';

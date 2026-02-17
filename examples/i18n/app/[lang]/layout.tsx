@@ -23,13 +23,23 @@ const { provider } = defineI18nUI(i18n, {
       nextPage: '下一頁',
       chooseLanguage: '選擇語言',
     },
+    vi: {
+      displayName: 'Vietnamese',
+      toc: 'Trên trang này',
+      search: 'Tìm kiếm',
+      lastUpdate: 'Cập nhật lần cuối vào',
+      searchNoResult: 'Không tìm thấy kết quả',
+      previousPage: 'Trang trước',
+      nextPage: 'Trang tiếp',
+      chooseLanguage: 'Chọn ngôn ngữ',
+      chooseTheme: 'Giao diện',
+      editOnGithub: 'Chỉnh sửa trên GitHub',
+      tocNoHeadings: 'Không có tiêu đề',
+    },
   },
 });
 
-export default async function Layout({
-  params,
-  children,
-}: LayoutProps<'/[lang]'>) {
+export default async function Layout({ params, children }: LayoutProps<'/[lang]'>) {
   const { lang } = await params;
   return (
     <html lang={lang} className={inter.className} suppressHydrationWarning>

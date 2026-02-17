@@ -3,7 +3,7 @@ import { glob } from 'tinyglobby';
 
 export interface GlobImportOptions {
   base: string;
-  query?: Record<string, string>;
+  query?: Record<string, string | undefined>;
   import?: string;
   eager?: boolean;
 }
@@ -68,9 +68,7 @@ export function createCodegen({
       patterns: string | string[],
       { base, ...rest }: GlobImportOptions,
     ): string {
-      patterns = (typeof patterns === 'string' ? [patterns] : patterns).map(
-        normalizeViteGlobPath,
-      );
+      patterns = (typeof patterns === 'string' ? [patterns] : patterns).map(normalizeViteGlobPath);
 
       return `import.meta.glob(${JSON.stringify(patterns)}, ${JSON.stringify(
         {
@@ -83,12 +81,7 @@ export function createCodegen({
     },
     async generateNodeGlobImport(
       patterns: string | string[],
-      {
-        base,
-        eager = false,
-        query = {},
-        import: importName,
-      }: GlobImportOptions,
+      { base, eager = false, query = {}, import: importName }: GlobImportOptions,
     ): Promise<string> {
       const cacheKey = JSON.stringify({ patterns, base });
       let files = globCache.get(cacheKey);
@@ -105,11 +98,10 @@ export function createCodegen({
         const searchParams = new URLSearchParams();
 
         for (const [k, v] of Object.entries(query)) {
-          searchParams.set(k, v);
+          if (v !== undefined) searchParams.set(k, v);
         }
 
-        const importPath =
-          this.formatImportPath(fullPath) + '?' + searchParams.toString();
+        const importPath = this.formatImportPath(fullPath) + '?' + searchParams.toString();
         if (eager) {
           const name = `__fd_glob_${eagerImportId++}`;
           this.lines.unshift(
@@ -136,10 +128,9 @@ export function createCodegen({
       const ext = path.extname(file);
       let filename: string;
 
-      if (ext === '.ts' && jsExtension) {
-        filename = file.substring(0, file.length - ext.length) + '.js';
-      } else if (ext === '.ts') {
+      if (ext === '.ts') {
         filename = file.substring(0, file.length - ext.length);
+        if (jsExtension) filename += '.js';
       } else {
         filename = file;
       }

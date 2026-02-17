@@ -10,13 +10,8 @@ import {
   useRef,
   useState,
 } from 'react';
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from 'fumadocs-ui/components/tabs';
-import type { SchemaData, SchemaUIGeneratedData } from '@/ui/schema';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from 'fumadocs-ui/components/tabs';
+import type { InfoTag, SchemaUIGeneratedData } from '@/ui/schema';
 import {
   Collapsible,
   CollapsibleContent,
@@ -25,43 +20,27 @@ import {
 import { buttonVariants } from 'fumadocs-ui/components/ui/button';
 import { ChevronDown } from 'lucide-react';
 import { Badge } from '@/ui/components/method-label';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from 'fumadocs-ui/components/ui/popover';
-import { cn } from 'fumadocs-ui/utils/cn';
+import { Popover, PopoverContent, PopoverTrigger } from 'fumadocs-ui/components/ui/popover';
+import { cn } from '@/utils/cn';
 import { cva } from 'class-variance-authority';
 
-interface DataContextType extends SchemaUIGeneratedData {
-  readOnly?: boolean;
-  writeOnly?: boolean;
+type DataContextType = SchemaUIGeneratedData;
+
+interface PopoverContextType {
+  renderTrigger: (props: { pathName: ReactNode; $ref: string; children: ReactNode }) => ReactNode;
 }
 
-interface PropertyContextType {
-  renderRef: (options: RenderRefOptions) => ReactNode;
-}
-
-interface RenderRefOptions {
-  text: ReactNode;
-  pathName: ReactNode;
-  $ref: string;
-}
-
-const typeVariants = cva(
-  'text-sm text-start text-fd-muted-foreground wrap-anywhere font-mono',
-  {
-    variants: {
-      variant: {
-        trigger:
-          'underline hover:text-fd-accent-foreground data-[state=open]:text-fd-accent-foreground',
-      },
+const typeVariants = cva('text-sm text-start text-fd-muted-foreground font-mono', {
+  variants: {
+    variant: {
+      trigger:
+        'underline hover:text-fd-accent-foreground data-[state=open]:text-fd-accent-foreground',
     },
   },
-);
+});
 
-const PropertyContext = createContext<PropertyContextType>({
-  renderRef: (props) => <RootRef {...props} />,
+const PopoverContext = createContext<PopoverContextType>({
+  renderTrigger: (props) => <RootPopoverTrigger {...props} />,
 });
 
 const DataContext = createContext<DataContextType | null>(null);
@@ -70,8 +49,8 @@ function useData() {
   return use(DataContext)!;
 }
 
-function useProperty() {
-  return use(PropertyContext);
+function usePopover() {
+  return use(PopoverContext);
 }
 
 export interface SchemaUIProps {
@@ -79,60 +58,47 @@ export interface SchemaUIProps {
   required?: boolean;
   as?: 'property' | 'body';
 
-  readOnly?: boolean;
-  writeOnly?: boolean;
   generated: SchemaUIGeneratedData;
 }
 
-export function SchemaUI({
-  name,
-  required = false,
-  as = 'property',
-  generated,
-  readOnly,
-  writeOnly,
-}: SchemaUIProps) {
-  const schema = generated.refs[generated.$root];
-  const context: DataContextType = useMemo(
-    () => ({
-      ...generated,
-      readOnly,
-      writeOnly,
-    }),
-    [generated, readOnly, writeOnly],
-  );
-  const isProperty = as === 'property' || !isExpandable(schema);
-
+export function SchemaUI({ name, required = false, as = 'property', generated }: SchemaUIProps) {
   return (
-    <DataContext value={context}>
-      {isProperty ? (
-        <SchemaUIProperty
-          name={name}
-          $type={generated.$root}
-          overrides={{
-            required,
-          }}
-        />
-      ) : (
-        <SchemaUIContent $type={generated.$root} />
-      )}
+    <DataContext value={generated}>
+      <SchemaUIProperty
+        name={name}
+        $type={generated.$root}
+        overrides={{
+          required,
+        }}
+        variant={
+          as === 'property' || generated.refs[generated.$root].type === 'primitive'
+            ? 'default'
+            : 'expand'
+        }
+      />
     </DataContext>
   );
 }
 
-function SchemaUIContent({ $type }: { $type: string }) {
-  const { refs, readOnly, writeOnly } = useData();
+function SchemaUIProperty({
+  name,
+  $type,
+  variant = 'default',
+  overrides,
+}: {
+  name: ReactNode;
+  $type: string;
+  variant?: 'default' | 'expand';
+  overrides?: Partial<PropertyProps>;
+}) {
+  const { refs } = useData();
   const schema = refs[$type];
+  const renderRef = useRenderRef();
+  let type: ReactNode = schema.typeName;
 
-  if ((schema.readOnly && !readOnly) || (schema.writeOnly && !writeOnly))
-    return;
-
-  let child: ReactNode = null;
-
-  if (schema.type === 'or' && schema.items.length > 0) {
-    child = (
-      <>
-        {child}
+  if ((schema.type === 'or' || schema.type === 'and') && schema.items.length > 0) {
+    if (variant === 'expand')
+      return (
         <Tabs defaultValue={schema.items[0].$type}>
           <TabsList>
             {schema.items.map((item) => (
@@ -148,118 +114,110 @@ function SchemaUIContent({ $type }: { $type: string }) {
               forceMount={undefined}
               className="py-0"
             >
-              <SchemaUIContent {...item} />
+              <SchemaUIProperty {...item} variant="expand" />
             </TabsContent>
           ))}
         </Tabs>
-      </>
-    );
-  }
-
-  if (schema.type === 'object' && schema.props.length > 0) {
-    child = (
-      <>
-        {child}
-        {schema.props.map((prop) => (
-          <SchemaUIProperty
-            key={prop.name}
-            name={prop.name}
-            $type={prop.$type}
-            overrides={{ required: prop.required }}
-          />
-        ))}
-      </>
-    );
-  }
-
-  if (schema.type === 'array') {
-    child = (
-      <>
-        {child}
-        <ObjectCollapsible name="Array item">
-          <SchemaUIContent $type={schema.item.$type} />
-        </ObjectCollapsible>
-      </>
-    );
-  }
-
-  return child;
-}
-
-function SchemaUIProperty({
-  name,
-  $type,
-  overrides,
-}: {
-  name: ReactNode;
-  $type: string;
-  overrides?: Partial<PropertyProps>;
-}) {
-  const { renderRef } = useProperty();
-  const { refs, readOnly, writeOnly } = useData();
-  const schema = refs[$type];
-
-  if ((schema.readOnly && !readOnly) || (schema.writeOnly && !writeOnly))
-    return;
-
-  let type: ReactNode = schema.typeName;
-  if (schema.type === 'or' && schema.items.length > 0) {
-    type = (
-      <span className={cn(typeVariants(), 'flex flex-row gap-2 items-center')}>
-        {schema.items.map((item, i) => (
-          <Fragment key={item.$type}>
-            {i > 0 && <span>|</span>}
-            {renderRef({
-              pathName: name,
-              text: item.name,
-              $ref: item.$type,
-            })}
-          </Fragment>
-        ))}
-      </span>
-    );
-  }
-
-  if (schema.type === 'object' && schema.props.length > 0) {
+      );
     type = renderRef({
-      text: schema.aliasName,
+      pathName: name,
+      $ref: $type,
+    });
+  } else if (schema.type === 'object' && schema.props.length > 0) {
+    if (variant === 'expand')
+      return schema.props.map((prop) => (
+        <SchemaUIProperty
+          key={prop.name}
+          name={prop.name}
+          $type={prop.$type}
+          overrides={{ required: prop.required }}
+        />
+      ));
+    type = renderRef({
+      pathName: name,
+      $ref: $type,
+    });
+  } else if (schema.type === 'array') {
+    if (variant === 'expand')
+      return (
+        <Collapsible className="my-2">
+          <CollapsibleTrigger
+            className={cn(
+              buttonVariants({ color: 'secondary', size: 'sm' }),
+              'group px-3 py-2 data-[state=open]:rounded-b-none',
+            )}
+          >
+            Array Item
+            <ChevronDown className="size-4 text-fd-muted-foreground group-data-[state=open]:rotate-180" />
+          </CollapsibleTrigger>
+          <CollapsibleContent className="-mt-px bg-fd-card px-3 rounded-lg rounded-tl-none border shadow-sm">
+            <SchemaUIProperty name="" $type={schema.item.$type} variant="expand" />
+          </CollapsibleContent>
+        </Collapsible>
+      );
+
+    type = renderRef({
       pathName: name,
       $ref: $type,
     });
   }
 
-  if (schema.type === 'array') {
-    type = renderRef({
-      text: schema.aliasName,
-      pathName: <>{name}[]</>,
-      $ref: schema.item.$type,
-    });
-  }
-
-  return (
-    <Property
-      name={name}
-      type={type}
-      deprecated={schema.deprecated}
-      {...overrides}
-    >
+  const child = (
+    <>
       {schema.description}
       {schema.infoTags && schema.infoTags.length > 0 && (
         <div className="flex flex-row gap-2 flex-wrap my-2 not-prose empty:hidden">
-          {schema.infoTags.map((tag, i) => (
-            <Fragment key={i}>{tag}</Fragment>
+          {schema.infoTags.map((tag) => (
+            <InfoTag key={tag.label} tag={tag} />
           ))}
         </div>
       )}
+    </>
+  );
+  if (variant === 'expand') return child;
+  return (
+    <Property name={name} type={type} deprecated={schema.deprecated} {...overrides}>
+      {child}
     </Property>
   );
 }
 
-function SchemaUIPopover({
-  initialPath,
-}: {
-  initialPath: { name: ReactNode; $ref?: string }[];
-}) {
+function InfoTag({ tag }: { tag: InfoTag }) {
+  const ref = useRef<HTMLElement>(null);
+  const [isTruncated, setTruncated] = useState(false);
+  const [open, setOpen] = useState(false);
+  useEffect(() => {
+    const element = ref.current;
+    if (!element) return;
+    // assume the tag width will never change
+    setTruncated(element.scrollWidth !== element.offsetWidth);
+  }, []);
+
+  return (
+    <div className="flex flex-row items-start gap-2 bg-fd-secondary border rounded-lg text-xs p-1.5 shadow-md max-w-full">
+      <span className="font-medium">{tag.label}</span>
+      <code
+        ref={ref}
+        className={cn(
+          'min-w-0 flex-1 text-fd-muted-foreground',
+          open ? 'wrap-break-word' : 'truncate',
+        )}
+      >
+        {tag.value}
+      </code>
+      {isTruncated && (
+        <button
+          className={cn(buttonVariants({ size: 'icon-xs', variant: 'ghost' }))}
+          onClick={() => setOpen((prev) => !prev)}
+        >
+          <ChevronDown />
+        </button>
+      )}
+    </div>
+  );
+}
+
+function SchemaUIPopover({ initialPath }: { initialPath: { name: ReactNode; $ref?: string }[] }) {
   const [path, setPath] = useState(initialPath);
   const ref = useRef<HTMLDivElement>(null);
   const last = path.findLast((item) => item.$ref !== undefined);
@@ -272,15 +230,15 @@ function SchemaUIPopover({
     element.parentElement.scrollTop = 0;
   }, [last?.$ref]);
 
-  const context: PropertyContextType = useMemo(
+  const context: PopoverContextType = useMemo(
     () => ({
-      renderRef: (props) => (
-        <LinkRef
-          {...props}
-          onInsert={(name, $ref) => {
-            setPath((path) => [...path, { name, $ref }]);
-          }}
-        />
+      renderTrigger: ({ $ref, pathName, children }) => (
+        <button
+          className={cn(typeVariants({ variant: 'trigger' }))}
+          onClick={() => setPath((path) => [...path, { name: pathName, $ref }])}
+        >
+          {children}
+        </button>
       ),
     }),
     [],
@@ -292,19 +250,13 @@ function SchemaUIPopover({
     <>
       <div className="sticky top-0 flex flex-row flex-wrap items-center text-sm font-medium font-mono bg-fd-muted p-2">
         {path.map((item, i) => {
-          const isDuplicated = path.some(
-            (other, j) => j < i && other.$ref === item.$ref,
-          );
+          const isDuplicated = path.some((other, j) => j < i && other.$ref === item.$ref);
           const className = cn(
             isDuplicated && 'text-orange-400',
             item.$ref && 'hover:underline hover:text-fd-accent-foreground',
           );
-
           const node = item.$ref ? (
-            <button
-              onClick={() => setPath((path) => path.slice(0, i + 1))}
-              className={className}
-            >
+            <button onClick={() => setPath((path) => path.slice(0, i + 1))} className={className}>
               {item.name}
             </button>
           ) : (
@@ -319,36 +271,78 @@ function SchemaUIPopover({
           );
         })}
       </div>
-      <PropertyContext value={context}>
+      <PopoverContext value={context}>
         <div ref={ref} className="px-2">
-          <SchemaUIContent $type={last.$ref!} />
+          <SchemaUIProperty name="" $type={last.$ref!} variant="expand" />
         </div>
-      </PropertyContext>
+      </PopoverContext>
     </>
   );
 }
 
-function RootRef({ text, $ref, pathName }: RenderRefOptions) {
+function useRenderRef() {
   const { refs } = useData();
+  const { renderTrigger } = usePopover();
+  return function renderRef({
+    pathName,
+    $ref,
+    text,
+  }: {
+    pathName: ReactNode;
+    $ref: string;
+    text?: ReactNode;
+  }) {
+    const schema = refs[$ref];
+
+    if (schema.type === 'and' || schema.type === 'or') {
+      const sep = schema.type === 'and' ? '&' : '|';
+      return (
+        <span className={cn(typeVariants(), 'flex flex-row gap-2 items-center flex-wrap')}>
+          {schema.items.map((item, i) => (
+            <Fragment key={item.$type}>
+              {i > 0 && <span>{sep}</span>}
+              {renderRef({ pathName, text: item.name, $ref: item.$type })}
+            </Fragment>
+          ))}
+        </span>
+      );
+    }
+
+    if (schema.type === 'array') {
+      return (
+        <span className={cn(typeVariants(), 'flex flex-row items-center flex-wrap')}>
+          {'array<'}
+          {renderRef({ pathName: <>{pathName}[]</>, $ref: schema.item.$type })}
+          {'>'}
+        </span>
+      );
+    }
+
+    return renderTrigger({ $ref, pathName, children: text ?? schema.aliasName });
+  };
+}
+
+function RootPopoverTrigger({
+  $ref,
+  pathName,
+  children,
+}: {
+  pathName: ReactNode;
+  $ref: string;
+  children: ReactNode;
+}) {
   const ref = useCallback((element: HTMLDivElement | null) => {
     if (!element || element.style.getPropertyValue('--initial-height')) return;
 
     element.style.setProperty('--initial-height', `${element.clientHeight}px`);
   }, []);
 
-  if (!isExpandable(refs[$ref])) {
-    return <span className={cn(typeVariants())}>{text}</span>;
-  }
-
   return (
     <Popover>
       <PopoverTrigger className={cn(typeVariants({ variant: 'trigger' }))}>
-        {text}
+        {children}
       </PopoverTrigger>
-      <PopoverContent
-        ref={ref}
-        className="w-[600px] min-h-(--initial-height,0) max-h-[460px] p-0"
-      >
+      <PopoverContent ref={ref} className="w-[600px] min-h-(--initial-height,0) max-h-[460px] p-0">
         <SchemaUIPopover
           initialPath={[
             {
@@ -359,50 +353,6 @@ function RootRef({ text, $ref, pathName }: RenderRefOptions) {
         />
       </PopoverContent>
     </Popover>
-  );
-}
-
-function LinkRef({
-  $ref,
-  pathName,
-  onInsert,
-  text,
-}: RenderRefOptions & {
-  onInsert: (name: ReactNode, $ref: string) => void;
-}) {
-  const { refs } = useData();
-  if (!isExpandable(refs[$ref])) {
-    return <span className={cn(typeVariants())}>{text}</span>;
-  }
-
-  return (
-    <button
-      className={cn(typeVariants({ variant: 'trigger' }))}
-      onClick={() => {
-        onInsert(pathName, $ref);
-      }}
-    >
-      {text}
-    </button>
-  );
-}
-
-function ObjectCollapsible(props: { name: string; children: ReactNode }) {
-  return (
-    <Collapsible className="my-2" {...props}>
-      <CollapsibleTrigger
-        className={cn(
-          buttonVariants({ color: 'secondary', size: 'sm' }),
-          'group px-3 py-2 data-[state=open]:rounded-b-none',
-        )}
-      >
-        {props.name}
-        <ChevronDown className="size-4 text-fd-muted-foreground group-data-[state=open]:rotate-180" />
-      </CollapsibleTrigger>
-      <CollapsibleContent className="-mt-px *:bg-fd-card">
-        {props.children}
-      </CollapsibleContent>
-    </Collapsible>
   );
 }
 
@@ -423,6 +373,7 @@ function Property({
   required,
   deprecated,
   nested = false,
+  className,
   ...props
 }: PropertyProps) {
   return (
@@ -432,20 +383,20 @@ function Property({
         nested
           ? 'p-3 border-x bg-fd-card last:rounded-b-xl first:rounded-tr-xl last:border-b'
           : 'py-4 first:border-t-0',
-        props.className,
+        className,
       )}
     >
       <div className="flex flex-wrap items-center gap-3 not-prose">
         <span className="font-medium font-mono text-fd-primary">
           {name}
-          {required === false && (
+          {required ? (
+            <span className="text-red-400">*</span>
+          ) : (
             <span className="text-fd-muted-foreground">?</span>
           )}
         </span>
         {typeof type === 'string' ? (
-          <span className="text-sm font-mono text-fd-muted-foreground">
-            {type}
-          </span>
+          <span className="text-sm font-mono text-fd-muted-foreground">{type}</span>
         ) : (
           type
         )}
@@ -455,13 +406,7 @@ function Property({
           </Badge>
         )}
       </div>
-      <div className="prose-no-margin pt-2.5 empty:hidden">
-        {props.children}
-      </div>
+      <div className="prose-no-margin pt-2.5 empty:hidden">{props.children}</div>
     </div>
   );
-}
-
-function isExpandable(schema: SchemaData) {
-  return schema.type !== 'primitive';
 }

@@ -1,12 +1,5 @@
 'use client';
-import {
-  lazy,
-  type RefObject,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import { lazy, type RefObject, useEffect, useMemo, useRef, useState } from 'react';
 import type {
   ForceGraphMethods,
   ForceGraphProps,
@@ -24,12 +17,13 @@ export interface Graph {
 export type Node = NodeObject<NodeType>;
 export type Link = LinkObject<NodeType, LinkType>;
 
-export type NodeType = {
+export interface NodeType {
   text: string;
   description?: string;
   neighbors?: string[];
   url: string;
-};
+}
+
 export type LinkType = Record<string, unknown>;
 
 export interface GraphViewProps {
@@ -50,7 +44,7 @@ export function GraphView(props: GraphViewProps) {
   return (
     <div
       ref={ref}
-      className="relative border h-[600px] [&_canvas]:size-full rounded-xl overflow-hidden"
+      className="relative border h-[600px] [&_canvas]:size-full rounded-xl overflow-hidden bg-fd-background"
     >
       {mount && <ClientOnly {...props} containerRef={ref} />}
     </div>
@@ -59,11 +53,10 @@ export function GraphView(props: GraphViewProps) {
 
 function ClientOnly({
   containerRef,
-  graph: { nodes, links },
+  graph,
 }: GraphViewProps & { containerRef: RefObject<HTMLDivElement | null> }) {
-  const fgRef = useRef<ForceGraphMethods<Node, Link> | undefined>(undefined);
+  const graphRef = useRef<ForceGraphMethods<Node, Link> | undefined>(undefined);
   const hoveredRef = useRef<Node | null>(null);
-  const readyRef = useRef(false);
   const router = useRouter();
   const [tooltip, setTooltip] = useState<{
     x: number;
@@ -71,20 +64,8 @@ function ClientOnly({
     content: string;
   } | null>(null);
 
-  useEffect(() => {
-    const fg = fgRef.current;
-    if (!fg) return;
-
-    if (readyRef.current) return;
-    readyRef.current = true;
-
-    fg.d3Force('link', forceLink().distance(200));
-    fg.d3Force('charge', forceManyBody().strength(1));
-    fg.d3Force('collision', forceCollide(60));
-  });
-
   const handleNodeHover = (node: Node | null) => {
-    const graph = fgRef.current;
+    const graph = graphRef.current;
     if (!graph) return;
     hoveredRef.current = node;
 
@@ -113,9 +94,7 @@ function ClientOnly({
     ctx.arc(node.x!, node.y!, radius, 0, 2 * Math.PI, false);
 
     const hoverNode = hoveredRef.current;
-    const isActive =
-      hoverNode?.id === node.id ||
-      hoverNode?.neighbors?.includes(node.id as string);
+    const isActive = hoverNode?.id === node.id || hoverNode?.neighbors?.includes(node.id as string);
 
     ctx.fillStyle = isActive
       ? style.getPropertyValue('--color-fd-primary')
@@ -150,22 +129,37 @@ function ClientOnly({
 
   // Enrich nodes with neighbors for hover effects
   const enrichedNodes = useMemo(() => {
-    const enrichedNodes = nodes.map((node) => ({
-      ...node,
-      neighbors: links.flatMap((link) => {
-        if (link.source === node.id) return link.target;
-        if (link.target === node.id) return link.source;
+    const { nodes, links } = structuredClone(graph);
+    for (const node of nodes) {
+      node.neighbors = links.flatMap((link) => {
+        if (link.source === node.id) return link.target as string;
+        if (link.target === node.id) return link.source as string;
         return [];
-      }),
-    }));
+      });
+    }
 
-    return { nodes: enrichedNodes as NodeType[], links };
-  }, [nodes, links]);
+    return {
+      nodes,
+      links,
+    };
+  }, [graph]);
 
   return (
     <>
       <ForceGraph2D<NodeType, LinkType>
-        ref={fgRef}
+        ref={{
+          get current() {
+            return graphRef.current;
+          },
+          set current(fg) {
+            graphRef.current = fg;
+            if (fg) {
+              fg.d3Force('link', forceLink().distance(200));
+              fg.d3Force('charge', forceManyBody().strength(10));
+              fg.d3Force('collision', forceCollide(60));
+            }
+          },
+        }}
         graphData={enrichedNodes}
         nodeCanvasObject={nodeCanvasObject}
         linkColor={linkColor}

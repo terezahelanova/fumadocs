@@ -1,8 +1,5 @@
 import { getByID, type Orama, search, type SearchParams } from '@orama/orama';
-import {
-  type AdvancedDocument,
-  type advancedSchema,
-} from '@/search/orama/create-db';
+import { type AdvancedDocument, type advancedSchema } from '@/search/orama/create-db';
 import { removeUndefined } from '@/utils/remove-undefined';
 import { createContentHighlighter, type SortedResult } from '@/search';
 
@@ -17,7 +14,7 @@ export async function searchAdvanced(
 ): Promise<SortedResult[]> {
   if (typeof tag === 'string') tag = [tag];
 
-  let params = {
+  const params = {
     ...override,
     mode,
     where: removeUndefined({
@@ -29,6 +26,7 @@ export async function searchAdvanced(
           : undefined,
       ...override.where,
     }),
+    limit: 10,
     groupBy: {
       properties: ['page_id'],
       maxResult: 8,
@@ -37,11 +35,10 @@ export async function searchAdvanced(
   } as SearchParams<typeof db, AdvancedDocument>;
 
   if (query.length > 0) {
-    params = {
-      ...params,
+    Object.assign(params, {
       term: query,
       properties: mode === 'fulltext' ? ['content'] : ['content', 'embeddings'],
-    } as SearchParams<typeof db, AdvancedDocument>;
+    } as SearchParams<typeof db, AdvancedDocument>);
   }
 
   const highlighter = createContentHighlighter(query);
@@ -56,9 +53,8 @@ export async function searchAdvanced(
     list.push({
       id: pageId,
       type: 'page',
-      content: page.content,
+      content: highlighter.highlightMarkdown(page.content),
       breadcrumbs: page.breadcrumbs,
-      contentWithHighlights: highlighter.highlight(page.content),
       url: page.url,
     });
 
@@ -67,13 +63,12 @@ export async function searchAdvanced(
 
       list.push({
         id: hit.document.id.toString(),
-        content: hit.document.content,
+        content: highlighter.highlightMarkdown(hit.document.content),
         breadcrumbs: hit.document.breadcrumbs,
-        contentWithHighlights: highlighter.highlight(hit.document.content),
         type: hit.document.type as SortedResult['type'],
         url: hit.document.url,
       });
     }
   }
-  return list;
+  return list.length > 80 ? list.slice(0, 80) : list;
 }

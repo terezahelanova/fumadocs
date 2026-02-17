@@ -1,21 +1,26 @@
 ---
 title: Loader API
-description: Turn a content source into a unified interface
+description: Turn content sources into a unified interface
 ---
 
 ## What it does?
 
-`loader()` provides an interface for Fumadocs to integrate with file-system based content sources.
+`loader()` provides an interface for Fumadocs to integrate with different content sources.
 
 - Generate [page slugs and page tree](/docs/headless/page-conventions).
 - Assign URL to each page.
 - Output useful utilities to interact with content.
 
-It doesn't rely on the real file system (zero `node:fs` usage), a virtual storage is also allowed.
+<Callout type='warn' title="Important to Know">
+
+- `loader()` is a server-side API, not a build-time magic or browser compatible API.
+- It uses in-memory storage, the files are passed from your content sources.
+
+</Callout>
 
 ## Usage
 
-You can use it with built-in content sources like Fumadocs MDX.
+You can use it with content sources like Fumadocs MDX, see [`source`](/docs/headless/source-api/source) for details.
 
 ```ts
 import { loader } from 'fumadocs-core/source';
@@ -44,9 +49,25 @@ loader({
 });
 ```
 
+### Slugs
+
+Define a custom function to generate slugs from page files.
+
+```ts
+import { loader } from 'fumadocs-core/source';
+
+loader({
+  slugs(file) {
+    console.log(file.path, file.data);
+    // or return `undefined` to fallback to default value
+    return ['my', 'slug'];
+  },
+});
+```
+
 ### Icons
 
-Load the [icon](/docs/headless/page-conventions#icons) property specified by pages and meta files.
+Load the [icon](/docs/headless/page-conventions#icons) property specified by page and meta files.
 
 ```ts
 import { loader } from 'fumadocs-core/source';
@@ -119,10 +140,10 @@ source.getPages('locale');
 import { source } from '@/lib/source';
 
 // without i18n
-source.pageTree;
+source.getPageTree();
 
 // with i18n
-source.pageTree['locale'];
+source.getPageTree('locale');
 ```
 
 ### Get from Node
@@ -159,4 +180,35 @@ import { source } from '@/lib/source';
 
 // language -> pages
 const entries = source.getLanguages();
+```
+
+## Client API
+
+Loader API is best when used in RSC environments, which allows passing JSX nodes across the server-client boundary.
+
+For non-RSC environments, it provides a tiny serialization layer.
+
+```ts tab="Server"
+import { source } from '@/lib/source';
+
+// where you pass loader data
+async function loader() {
+  const pageTree = source.getPageTree();
+
+  return {
+    pageTree: await source.serializePageTree(pageTree),
+  };
+}
+```
+
+```tsx tab="Client"
+import { useFumadocsLoader } from 'fumadocs-core/source/client';
+
+function MyComponent() {
+  // `useLoaderData()` receives loader data (provided by your React framework)
+  const { pageTree, ...data } = useFumadocsLoader(useLoaderData());
+
+  // now render it (e.g. via Fumadocs UI)
+  return <DocsLayout tree={pageTree}>...</DocsLayout>;
+}
 ```

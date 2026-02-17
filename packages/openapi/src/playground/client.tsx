@@ -2,48 +2,20 @@
 import {
   type FC,
   Fragment,
-  type HTMLAttributes,
   lazy,
   type ReactNode,
   useEffect,
   useMemo,
   useState,
-  useEffectEvent,
+  type ComponentProps,
+  useRef,
 } from 'react';
-import type {
-  FieldPath,
-  UseControllerProps,
-  UseControllerReturn,
-} from 'react-hook-form';
-import {
-  FormProvider,
-  get,
-  set,
-  useController,
-  useForm,
-  useFormContext,
-} from 'react-hook-form';
-import { useApiContext } from '@/ui/contexts/api';
+import { useApiContext, useServerContext } from '@/ui/contexts/api';
 import type { FetchResult } from '@/playground/fetcher';
-import {
-  FieldInput,
-  FieldSet,
-  JsonInput,
-  ObjectInput,
-} from './components/inputs';
-import type {
-  ParameterField,
-  RequestSchema,
-  SecurityEntry,
-} from '@/playground/index';
+import type { ParameterField, SecurityEntry } from '@/playground/index';
 import { getStatusInfo } from './status-info';
-import {
-  joinURL,
-  resolveRequestData,
-  resolveServerUrl,
-  withBase,
-} from '@/utils/url';
-import { DynamicCodeBlock } from 'fumadocs-ui/components/dynamic-codeblock';
+import { joinURL, resolveRequestData, resolveServerUrl, withBase } from '@/utils/url';
+import { DynamicCodeBlock } from 'fumadocs-ui/components/dynamic-codeblock.core';
 import { MethodLabel } from '@/ui/components/method-label';
 import { useQuery } from '@/utils/use-query';
 import {
@@ -51,16 +23,11 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from 'fumadocs-ui/components/ui/collapsible';
-import { ChevronDown, LoaderCircle } from 'lucide-react';
+import { X, ChevronDown, LoaderCircle } from 'lucide-react';
 import { encodeRequestData } from '@/requests/media/encode';
 import { buttonVariants } from 'fumadocs-ui/components/ui/button';
-import { cn } from 'fumadocs-ui/utils/cn';
-import {
-  type FieldInfo,
-  SchemaProvider,
-  useResolvedSchema,
-} from '@/playground/schema';
-import { useOperationContext } from '@/ui/contexts/operation';
+import { cn } from '@/utils/cn';
+import { SchemaProvider, SchemaScope, useResolvedSchema } from '@/playground/schema';
 import {
   Select,
   SelectContent,
@@ -70,36 +37,42 @@ import {
 } from '@/ui/components/select';
 import { labelVariants } from '@/ui/components/input';
 import type { ParsedSchema } from '@/utils/schema';
-import type { RequestData } from '@/requests/types';
 import ServerSelect from './components/server-select';
 import { useStorageKey } from '@/ui/client/storage-key';
+import { useExampleRequests } from '@/ui/operation/usage-tabs/client';
+import {
+  FieldKey,
+  Stf,
+  StfProvider,
+  useDataEngine,
+  useFieldValue,
+  useListener,
+  useStf,
+} from '@fumari/stf';
+import { objectGet, objectSet, stringifyFieldKey } from '@fumari/stf/lib/utils';
+import { FieldInput, FieldSet, JsonInput, ObjectInput } from './components/inputs';
 
-export interface FormValues {
+export interface FormValues extends Record<string, unknown> {
   path: Record<string, unknown>;
   query: Record<string, unknown>;
   header: Record<string, unknown>;
   cookie: Record<string, unknown>;
   body: unknown;
-
-  /**
-   * Store the cached encoded request data, do not modify it.
-   */
-  _encoded?: RequestData;
 }
 
-export interface PlaygroundClientProps extends HTMLAttributes<HTMLFormElement> {
+export interface PlaygroundClientProps extends ComponentProps<'form'>, SchemaScope {
   route: string;
   method: string;
   parameters?: ParameterField[];
   securities: SecurityEntry[][];
   body?: {
-    schema: RequestSchema;
+    schema: ParsedSchema;
     mediaType: string;
   };
   /**
    * Resolver for $ref schemas you've passed
    */
-  references: Record<string, RequestSchema>;
+  references: Record<string, ParsedSchema>;
   proxyUrl?: string;
 }
 
@@ -121,16 +94,12 @@ export interface PlaygroundClientOptions {
   /**
    * render the paremeter inputs of API endpoint.
    *
-   * It uses `react-hook-form`, you can use either:
-   * - the library itself, with types from `fumadocs-openapi/playground/client`.
+   * for updating values, use:
    * - the `Custom.useController()` from `fumadocs-openapi/playground/client`.
    *
    * Recommended types packages: `json-schema-typed`, `openapi-types`.
    */
-  renderParameterField?: (
-    fieldName: FieldPath<FormValues>,
-    param: ParameterField,
-  ) => ReactNode;
+  renderParameterField?: (fieldName: FieldKey, param: ParameterField) => ReactNode;
 
   /**
    * render the input for API endpoint body.
@@ -140,7 +109,7 @@ export interface PlaygroundClientOptions {
   renderBodyField?: (
     fieldName: 'body',
     info: {
-      schema: RequestSchema;
+      schema: ParsedSchema;
       mediaType: string;
     },
   ) => ReactNode;
@@ -165,18 +134,14 @@ export default function PlaygroundClient({
   body,
   references,
   proxyUrl,
+  writeOnly,
+  readOnly,
   ...rest
 }: PlaygroundClientProps) {
-  const {
-    example: exampleId,
-    examples,
-    setExampleData,
-  } = useOperationContext();
+  const { example: exampleId, examples, setExampleData } = useExampleRequests();
   const storageKeys = useStorageKey();
-  const fieldInfoMap = useMemo(() => new Map<string, FieldInfo>(), []);
   const {
     mediaAdapters,
-    serverRef,
     client: {
       playground: {
         components: { ResultDisplay = DefaultResultDisplay } = {},
@@ -185,6 +150,7 @@ export default function PlaygroundClient({
       } = {},
     },
   } = useApiContext();
+  const { serverRef } = useServerContext();
   const [securityId, setSecurityId] = useState(0);
   const { inputs, mapInputs, initAuthValues } = useAuthInputs(
     securities[securityId],
@@ -192,9 +158,7 @@ export default function PlaygroundClient({
   );
 
   const defaultValues: FormValues = useMemo(() => {
-    const requestData = examples.find(
-      (example) => example.id === exampleId,
-    )?.data;
+    const requestData = examples.find((example) => example.id === exampleId)?.data;
 
     return {
       path: requestData?.path ?? {},
@@ -205,7 +169,9 @@ export default function PlaygroundClient({
     };
   }, [examples, exampleId]);
 
-  const form = useForm<FormValues>({
+  const stf = useStf({
+    // it is fine to modify `defaultValues` in place
+    // because we already try to persist the form values via `setExampleData`.
     defaultValues,
   });
 
@@ -214,128 +180,91 @@ export default function PlaygroundClient({
     const fetcher = await import('./fetcher').then((mod) =>
       mod.createBrowserFetcher(mediaAdapters, requestTimeout),
     );
-
-    input._encoded ??= encodeRequestData(
+    const encoded = encodeRequestData(
       { ...mapInputs(input), method, bodyMediaType: body?.mediaType },
       mediaAdapters,
       parameters,
     );
-
     return fetcher.fetch(
       joinURL(
         withBase(
-          targetServer
-            ? resolveServerUrl(targetServer.url, targetServer.variables)
-            : '/',
+          targetServer ? resolveServerUrl(targetServer.url, targetServer.variables) : '/',
           window.location.origin,
         ),
-        resolveRequestData(route, input._encoded),
+        resolveRequestData(route, encoded),
       ),
       {
         proxyUrl,
-        ...input._encoded,
+        ...encoded,
       },
     );
   });
 
-  const onUpdateDebounced = useEffectEvent((values: FormValues) => {
-    for (const item of inputs) {
-      const value = get(values, item.fieldName);
+  const timerRef = useRef<number | null>(null);
+  useListener({
+    stf,
+    onUpdate() {
+      if (timerRef.current) window.clearTimeout(timerRef.current);
+      timerRef.current = window.setTimeout(
+        () => {
+          const values = stf.dataEngine.getData() as FormValues;
+          for (const item of inputs) {
+            const value = stf.dataEngine.get(item.fieldName);
 
-      if (value) {
-        localStorage.setItem(
-          storageKeys.AuthField(item),
-          JSON.stringify(value),
-        );
-      }
-    }
+            if (value) {
+              localStorage.setItem(storageKeys.AuthField(item), JSON.stringify(value));
+            }
+          }
 
-    const data = {
-      ...mapInputs(values),
-      method,
-      bodyMediaType: body?.mediaType,
-    };
-    values._encoded ??= encodeRequestData(data, mediaAdapters, parameters);
-    setExampleData(data, values._encoded);
+          const data = {
+            ...mapInputs(values),
+            method,
+            bodyMediaType: body?.mediaType,
+          };
+          setExampleData(data, encodeRequestData(data, mediaAdapters, parameters));
+        },
+        timerRef.current ? 400 : 0,
+      );
+    },
   });
 
   useEffect(() => {
-    let timer: number | null = null;
+    // same object reference = unchanged
+    if (stf.dataEngine.getData() === defaultValues) return;
 
-    const subscription = form.subscribe({
-      formState: {
-        values: true,
-      },
-      callback({ values }) {
-        // remove cached encoded request data
-        delete values._encoded;
-
-        if (timer) window.clearTimeout(timer);
-        timer = window.setTimeout(
-          () => onUpdateDebounced(values),
-          timer ? 400 : 0,
-        );
-      },
-    });
-
-    return () => subscription();
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- mounted once only
-  }, []);
-
-  useEffect(() => {
-    form.reset(initAuthValues(defaultValues));
-
-    return () => fieldInfoMap.clear();
+    stf.dataEngine.reset(defaultValues);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- ignore other parts
   }, [defaultValues]);
 
   useEffect(() => {
-    form.reset((values) => initAuthValues(values));
-
-    return () => {
-      form.reset((values) => {
-        for (const item of inputs) {
-          set(values, item.fieldName, undefined);
-        }
-
-        return values;
-      });
-    };
+    return initAuthValues(stf);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- ignore other parts
-  }, [inputs]);
-
-  const onSubmit = form.handleSubmit((value) => {
-    testQuery.start(mapInputs(value));
-  });
+  }, [defaultValues, inputs]);
 
   return (
-    <FormProvider {...form}>
-      <SchemaProvider fieldInfoMap={fieldInfoMap} references={references}>
+    <StfProvider value={stf}>
+      <SchemaProvider references={references} writeOnly={writeOnly} readOnly={readOnly}>
         <form
           {...rest}
           className={cn(
             'not-prose flex flex-col rounded-xl border shadow-md overflow-hidden bg-fd-card text-fd-card-foreground',
             rest.className,
           )}
-          onSubmit={onSubmit}
+          onSubmit={(e) => {
+            testQuery.start(mapInputs(stf.dataEngine.getData() as FormValues));
+            e.preventDefault();
+          }}
         >
-          <ServerSelect />
+          <ServerSelect className="border-b" />
           <div className="flex flex-row items-center gap-2 text-sm p-3 not-last:pb-0">
             <MethodLabel>{method}</MethodLabel>
             <Route route={route} className="flex-1" />
             <button
               type="submit"
-              className={cn(
-                buttonVariants({ color: 'primary', size: 'sm' }),
-                'w-14 py-1.5',
-              )}
+              className={cn(buttonVariants({ color: 'primary', size: 'sm' }), 'w-14 py-1.5')}
               disabled={testQuery.isLoading}
             >
-              {testQuery.isLoading ? (
-                <LoaderCircle className="size-4 animate-spin" />
-              ) : (
-                'Send'
-              )}
+              {testQuery.isLoading ? <LoaderCircle className="size-4 animate-spin" /> : 'Send'}
             </button>
           </div>
 
@@ -346,15 +275,15 @@ export default function PlaygroundClient({
               setSecurityId={setSecurityId}
             >
               {inputs.map((input) => (
-                <Fragment key={input.fieldName}>{input.children}</Fragment>
+                <Fragment key={stringifyFieldKey(input.fieldName)}>{input.children}</Fragment>
               ))}
             </SecurityTabs>
           )}
           <FormBody body={body} parameters={parameters} />
-          {testQuery.data ? <ResultDisplay data={testQuery.data} /> : null}
+          {testQuery.data ? <ResultDisplay data={testQuery.data} reset={testQuery.reset} /> : null}
         </form>
       </SchemaProvider>
-    </FormProvider>
+    </StfProvider>
   );
 }
 
@@ -370,14 +299,11 @@ function SecurityTabs({
   children: ReactNode;
 }) {
   const [open, setOpen] = useState(false);
-  const form = useFormContext();
+  const engine = useDataEngine();
 
   const result = (
     <CollapsiblePanel title="Authorization">
-      <Select
-        value={securityId.toString()}
-        onValueChange={(v) => setSecurityId(Number(v))}
-      >
+      <Select value={securityId.toString()} onValueChange={(v) => setSecurityId(Number(v))}>
         <SelectTrigger>
           <SelectValue />
         </SelectTrigger>
@@ -387,9 +313,7 @@ function SecurityTabs({
               {security.map((item) => (
                 <div key={item.id} className="max-w-[600px]">
                   <p className="font-mono font-medium">{item.id}</p>
-                  <p className="text-fd-muted-foreground whitespace-pre-wrap">
-                    {item.description}
-                  </p>
+                  <p className="text-fd-muted-foreground whitespace-pre-wrap">{item.description}</p>
                 </div>
               ))}
             </SelectItem>
@@ -416,7 +340,7 @@ function SecurityTabs({
                 setSecurityId(i);
               }
             }}
-            setToken={(token) => form.setValue('header.Authorization', token)}
+            setToken={(token) => engine.update(['header', 'Authorization'], token)}
           >
             {result}
           </OauthDialog>
@@ -430,12 +354,8 @@ function SecurityTabs({
 
 const ParamTypes = ['path', 'header', 'cookie', 'query'] as const;
 
-function FormBody({
-  parameters = [],
-  body,
-}: Pick<PlaygroundClientProps, 'parameters' | 'body'>) {
-  const { renderParameterField, renderBodyField } =
-    useApiContext().client.playground ?? {};
+function FormBody({ parameters = [], body }: Pick<PlaygroundClientProps, 'parameters' | 'body'>) {
+  const { renderParameterField, renderBodyField } = useApiContext().client.playground ?? {};
   const panels = useMemo(() => {
     return ParamTypes.map((type) => {
       const items = parameters.filter((v) => v.in === type);
@@ -454,7 +374,7 @@ function FormBody({
           }
         >
           {items.map((field) => {
-            const fieldName = `${type}.${field.name}` as const;
+            const fieldName: FieldKey = [type, field.name!];
             if (renderParameterField) {
               return renderParameterField(fieldName, field);
             }
@@ -468,7 +388,7 @@ function FormBody({
 
             return (
               <FieldSet
-                key={fieldName}
+                key={stringifyFieldKey(fieldName)}
                 name={field.name}
                 fieldName={fieldName}
                 field={schema}
@@ -485,23 +405,18 @@ function FormBody({
       {panels}
       {body && (
         <CollapsiblePanel title="Body">
-          {renderBodyField ? (
-            renderBodyField('body', body)
-          ) : (
-            <BodyInput field={body.schema} />
-          )}
+          {renderBodyField ? renderBodyField('body', body) : <BodyInput field={body.schema} />}
         </CollapsiblePanel>
       )}
     </>
   );
 }
 
-function BodyInput({ field: _field }: { field: RequestSchema }) {
+function BodyInput({ field: _field }: { field: ParsedSchema }) {
   const field = useResolvedSchema(_field);
   const [isJson, setIsJson] = useState(false);
 
-  if (field.format === 'binary')
-    return <FieldSet field={field} fieldName="body" />;
+  if (field.format === 'binary') return <FieldSet field={field} fieldName={['body']} />;
 
   if (isJson)
     return (
@@ -519,14 +434,14 @@ function BodyInput({ field: _field }: { field: RequestSchema }) {
         >
           Close JSON Editor
         </button>
-        <JsonInput fieldName="body" />
+        <JsonInput fieldName={['body']} />
       </>
     );
 
   return (
     <FieldSet
       field={field}
-      fieldName="body"
+      fieldName={['body']}
       collapsible={false}
       name={
         <button
@@ -548,7 +463,7 @@ function BodyInput({ field: _field }: { field: RequestSchema }) {
 }
 
 export interface AuthField {
-  fieldName: string;
+  fieldName: FieldKey;
   defaultValue: unknown;
 
   original?: SecurityEntry;
@@ -568,7 +483,7 @@ function useAuthInputs(
 
     for (const security of securities) {
       if (security.type === 'http' && security.scheme === 'basic') {
-        const fieldName = `header.Authorization`;
+        const fieldName: FieldKey = ['header', 'Authorization'];
 
         result.push({
           fieldName,
@@ -603,15 +518,15 @@ function useAuthInputs(
           ),
         });
       } else if (security.type === 'oauth2') {
-        const fieldName = 'header.Authorization';
+        const fieldName: FieldKey = ['header', 'Authorization'];
 
         result.push({
-          fieldName: fieldName,
+          fieldName,
           original: security,
           defaultValue: 'Bearer ',
           children: (
             <fieldset className="flex flex-col gap-2">
-              <label htmlFor={fieldName} className={cn(labelVariants())}>
+              <label htmlFor={stringifyFieldKey(fieldName)} className={cn(labelVariants())}>
                 Access Token
               </label>
               <div className="flex gap-2">
@@ -640,10 +555,10 @@ function useAuthInputs(
           ),
         });
       } else if (security.type === 'http') {
-        const fieldName = 'header.Authorization';
+        const fieldName: FieldKey = ['header', 'Authorization'];
 
         result.push({
-          fieldName: fieldName,
+          fieldName,
           original: security,
           defaultValue: 'Bearer ',
           children: (
@@ -658,7 +573,7 @@ function useAuthInputs(
           ),
         });
       } else if (security.type === 'apiKey') {
-        const fieldName = `${security.in}.${security.name}`;
+        const fieldName: FieldKey = [security.in!, security.name!];
 
         result.push({
           fieldName,
@@ -676,7 +591,7 @@ function useAuthInputs(
           ),
         });
       } else {
-        const fieldName = 'header.Authorization';
+        const fieldName: FieldKey = ['header', 'Authorization'];
 
         result.push({
           fieldName,
@@ -693,8 +608,8 @@ function useAuthInputs(
                 }}
               />
               <p className="text-fd-muted-foreground text-xs">
-                OpenID Connect is not supported at the moment, you can still set
-                an access token here.
+                OpenID Connect is not supported at the moment, you can still set an access token
+                here.
               </p>
             </>
           ),
@@ -710,38 +625,40 @@ function useAuthInputs(
 
     for (const item of inputs) {
       if (!item.mapOutput) continue;
-
-      set(cloned, item.fieldName, item.mapOutput(get(cloned, item.fieldName)));
+      objectSet(cloned, item.fieldName, item.mapOutput(objectGet(cloned, item.fieldName)));
     }
 
     return cloned;
   };
 
-  const initAuthValues = (values: FormValues) => {
+  const initAuthValues = (stf: Stf) => {
+    const { dataEngine } = stf;
     for (const item of inputs) {
       const stored = localStorage.getItem(storageKeys.AuthField(item));
 
       if (stored) {
         const parsed = JSON.parse(stored);
         if (typeof parsed === typeof item.defaultValue) {
-          set(values, item.fieldName, parsed);
+          dataEngine.init(item.fieldName, parsed);
           continue;
         }
       }
 
-      set(values, item.fieldName, item.defaultValue);
+      dataEngine.init(item.fieldName, item.defaultValue);
     }
 
-    return values;
+    // reset
+    return () => {
+      for (const item of inputs) {
+        stf.dataEngine.delete(item.fieldName);
+      }
+    };
   };
 
   return { inputs, mapInputs, initAuthValues };
 }
 
-function Route({
-  route,
-  ...props
-}: HTMLAttributes<HTMLDivElement> & { route: string }) {
+function Route({ route, ...props }: ComponentProps<'div'> & { route: string }) {
   return (
     <div
       {...props}
@@ -764,29 +681,34 @@ function Route({
   );
 }
 
-function DefaultResultDisplay({ data }: { data: FetchResult }) {
+function DefaultResultDisplay({ data, reset }: { data: FetchResult; reset: () => void }) {
   const statusInfo = useMemo(() => getStatusInfo(data.status), [data.status]);
   const { shikiOptions } = useApiContext();
 
   return (
     <div className="flex flex-col gap-3 p-3">
-      <div className="inline-flex items-center gap-1.5 text-sm font-medium text-fd-foreground">
-        <statusInfo.icon className={cn('size-4', statusInfo.color)} />
-        {statusInfo.description}
+      <div className="flex justify-between items-center">
+        <div className="inline-flex items-center gap-1.5 text-sm font-medium text-fd-foreground">
+          <statusInfo.icon className={cn('size-4', statusInfo.color)} />
+          {statusInfo.description}
+        </div>
+        <button
+          type="button"
+          className={cn(
+            buttonVariants({ size: 'icon-xs' }),
+            'p-0 text-fd-muted-foreground hover:text-fd-accent-foreground [&_svg]:size-3.5',
+          )}
+          onClick={() => reset()}
+          aria-label="Dismiss response"
+        >
+          <X />
+        </button>
       </div>
       <p className="text-sm text-fd-muted-foreground">{data.status}</p>
       {data.data !== undefined && (
         <DynamicCodeBlock
-          lang={
-            typeof data.data === 'string' && data.data.length > 50000
-              ? 'text'
-              : data.type
-          }
-          code={
-            typeof data.data === 'string'
-              ? data.data
-              : JSON.stringify(data.data, null, 2)
-          }
+          lang={typeof data.data === 'string' && data.data.length > 50000 ? 'text' : data.type}
+          code={typeof data.data === 'string' ? data.data : JSON.stringify(data.data, null, 2)}
           options={shikiOptions}
         />
       )}
@@ -798,7 +720,7 @@ function CollapsiblePanel({
   title,
   children,
   ...props
-}: Omit<HTMLAttributes<HTMLDivElement>, 'title'> & {
+}: Omit<ComponentProps<'div'>, 'title'> & {
   title: ReactNode;
 }) {
   return (
@@ -814,14 +736,17 @@ function CollapsiblePanel({
   );
 }
 
-// exports for customisations
 export const Custom = {
-  useController<
-    TName extends FieldPath<FormValues> = FieldPath<FormValues>,
-    TTransformedValues = FormValues,
-  >(
-    props: UseControllerProps<FormValues, TName, TTransformedValues>,
-  ): UseControllerReturn<FormValues, TName> {
-    return useController<FormValues, TName, TTransformedValues>(props);
+  useController(
+    fieldName: FieldKey,
+    options?: {
+      defaultValue?: unknown;
+    },
+  ) {
+    const [value, setValue] = useFieldValue(fieldName, options);
+    return {
+      value,
+      setValue,
+    };
   },
 };

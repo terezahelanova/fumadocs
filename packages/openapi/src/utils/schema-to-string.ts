@@ -11,11 +11,7 @@ export function schemaToString(
   ctx?: ProcessedDocument,
   flags: FormatFlags = FormatFlags.None,
 ): string {
-  function union(
-    union: readonly ResolvedSchema[],
-    sep: string,
-    flags: FormatFlags,
-  ) {
+  function union(union: readonly ResolvedSchema[], sep: string, flags: FormatFlags) {
     const members = new Set();
     let nullable = false;
 
@@ -40,8 +36,8 @@ export function schemaToString(
     if ((flags & FormatFlags.UseAlias) === FormatFlags.UseAlias) {
       if (schema.title) return schema.title;
 
-      const ref = ctx?.getRawRef(schema);
-      if (ref) return ref.split('/').at(-1)!;
+      const ref = ctx?.getRawRef(schema)?.split('/');
+      if (ref && ref.length > 0) return ref[ref.length - 1];
     }
 
     if (Array.isArray(schema.type)) {
@@ -58,13 +54,15 @@ export function schemaToString(
     if (schema.type === 'array')
       return `array<${schema.items ? run(schema.items, flags | FormatFlags.UseAlias) : 'unknown'}>`;
 
-    if (schema.oneOf) {
-      return union(schema.oneOf, ' | ', flags);
+    const or = schema.oneOf ?? schema.anyOf;
+    if (schema.oneOf && schema.anyOf) {
+      return `(${union(schema.oneOf, ' | ', flags)}) & (${union(schema.anyOf, ' | ', flags)})`;
+    } else if (or) {
+      return union(or, ' | ', flags);
     }
 
-    const combinedOf = schema.anyOf ?? schema.allOf;
-    if (combinedOf) {
-      return union(combinedOf, ' & ', flags);
+    if (schema.allOf) {
+      return union(schema.allOf, ' & ', flags);
     }
 
     if (schema.not) return `not ${run(schema.not, flags)}`;

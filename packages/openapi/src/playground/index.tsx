@@ -4,11 +4,7 @@ import type {
   RenderContext,
   SecuritySchemeObject,
 } from '@/types';
-import {
-  getPreferredType,
-  type NoReference,
-  type ParsedSchema,
-} from '@/utils/schema';
+import { getPreferredType, type NoReference, type ParsedSchema } from '@/utils/schema';
 import { type PlaygroundClientProps } from './client';
 import { ClientLazy } from './lazy';
 
@@ -17,10 +13,8 @@ export type ParameterField = NoReference<ParameterObject> & {
   in: 'cookie' | 'header' | 'query' | 'path';
 };
 
-export type RequestSchema = ParsedSchema;
-
 interface Context {
-  references: Record<string, RequestSchema>;
+  references: Record<string, ParsedSchema>;
   registered: WeakMap<Exclude<ParsedSchema, boolean>, string>;
   nextId: () => string;
 }
@@ -61,15 +55,14 @@ export async function APIPlayground({ path, method, ctx }: APIPlaygroundProps) {
     body:
       bodyContent && mediaType
         ? ({
-            schema: writeReferences(
-              bodyContent[mediaType].schema as ParsedSchema,
-              context,
-            ),
+            schema: writeReferences(bodyContent[mediaType].schema as ParsedSchema, context),
             mediaType,
           } as PlaygroundClientProps['body'])
         : undefined,
     references: context.references,
     proxyUrl: ctx.proxyUrl,
+    writeOnly: true,
+    readOnly: false,
   };
 
   return <ClientLazy {...props} />;
@@ -79,7 +72,7 @@ function writeReferences(
   schema: ParsedSchema,
   ctx: Context,
   stack: WeakMap<object, object> = new WeakMap(),
-): RequestSchema {
+): ParsedSchema {
   if (typeof schema !== 'object' || !schema) return schema;
   if (stack.has(schema)) {
     const out = stack.get(schema)!;
@@ -101,9 +94,7 @@ function writeReferences(
       case 'oneOf':
       case 'allOf':
       case 'anyOf':
-        output[name] = output[name].map((item) =>
-          writeReferences(item, ctx, stack),
-        );
+        output[name] = output[name].map((item) => writeReferences(item, ctx, stack));
         continue;
       case 'items':
       case 'additionalProperties':

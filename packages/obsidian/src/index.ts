@@ -1,9 +1,5 @@
 import { type ReadFilesOptions, readVaultFiles } from '@/read-vaults';
-import {
-  type ConvertOptions,
-  convertVaultFiles,
-  type OutputFile,
-} from '@/convert';
+import { type ConvertOptions, convertVaultFiles, type OutputFile } from '@/convert';
 import path from 'node:path';
 import fs from 'node:fs/promises';
 
@@ -28,15 +24,13 @@ export interface WriteFilesOptions {
   contentDir?: string;
 }
 
-export async function writeVaultFiles(
-  files: OutputFile[],
-  options: WriteFilesOptions = {},
-) {
+export async function writeVaultFiles(files: OutputFile[], options: WriteFilesOptions = {}) {
   const { publicDir = 'public', contentDir = 'content/docs/vault' } = options;
 
   const map = {
     asset: publicDir,
     content: contentDir,
+    data: contentDir,
     custom: '',
   } as const;
 

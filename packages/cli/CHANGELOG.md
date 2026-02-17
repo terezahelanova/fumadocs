@@ -1,5 +1,42 @@
 # fumadocs
 
+## 1.2.4
+
+### Patch Changes
+
+- c22f6ee: bump tsdown
+- 4c570ce: add Flux layout to customise option
+
+## 1.2.3
+
+### Patch Changes
+
+- 65ff886: Improve CLI interactive experience
+
+## 1.2.2
+
+### Patch Changes
+
+- 6039041: Migrate to oxc for AST manipulation
+
+## 1.2.1
+
+### Patch Changes
+
+- b16a32f: Switch to tsdown for bundling
+
+## 1.2.0
+
+### Minor Changes
+
+- 389e68b: Fumadocs UI 16.3
+
+## 1.1.0
+
+### Minor Changes
+
+- 897fdef: Update `customise` command to support Fumadocs UI 16.2.0
+
 ## 1.0.3
 
 ### Patch Changes

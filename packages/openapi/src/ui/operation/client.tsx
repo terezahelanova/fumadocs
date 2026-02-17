@@ -2,16 +2,9 @@
 
 import { useCopyButton } from 'fumadocs-ui/utils/use-copy-button';
 import { buttonVariants } from 'fumadocs-ui/components/ui/button';
-import { cn } from 'fumadocs-ui/utils/cn';
+import { cn } from '@/utils/cn';
 import { Check, Copy } from 'lucide-react';
-import {
-  type ComponentProps,
-  createContext,
-  type ReactNode,
-  use,
-  useMemo,
-  useState,
-} from 'react';
+import { type ComponentProps, createContext, type ReactNode, use, useMemo, useState } from 'react';
 import {
   Select,
   SelectContent,
@@ -43,11 +36,7 @@ export function CopyResponseTypeScript({ code }: { code: string }) {
           }),
         )}
       >
-        {isChecked ? (
-          <Check className="size-3.5" />
-        ) : (
-          <Copy className="size-3.5" />
-        )}
+        {isChecked ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
         Copy
       </button>
     </div>
@@ -68,11 +57,7 @@ export function SelectTabs({
 }) {
   const [type, setType] = useState<string | null>(defaultValue ?? null);
 
-  return (
-    <Context value={useMemo(() => ({ type, setType }), [type])}>
-      {children}
-    </Context>
-  );
+  return <Context value={useMemo(() => ({ type, setType }), [type])}>{children}</Context>;
 }
 
 export function SelectTab({
@@ -89,22 +74,25 @@ export function SelectTab({
 
 export function SelectTabTrigger({
   items,
+  className,
   ...props
-}: ComponentProps<typeof SelectTrigger> & { items: string[] }) {
+}: ComponentProps<typeof SelectTrigger> & {
+  items: {
+    label: ReactNode;
+    value: string;
+  }[];
+}) {
   const { type, setType } = use(Context)!;
 
   return (
     <Select value={type ?? ''} onValueChange={setType}>
-      <SelectTrigger
-        {...props}
-        className={cn('not-prose w-fit', props.className)}
-      >
+      <SelectTrigger className={cn('not-prose w-fit min-w-0 *:min-w-0', className)} {...props}>
         <SelectValue />
       </SelectTrigger>
       <SelectContent>
-        {items.map((type) => (
-          <SelectItem key={type} value={type}>
-            {type}
+        {items.map(({ label, value }) => (
+          <SelectItem key={value} value={value}>
+            {label}
           </SelectItem>
         ))}
       </SelectContent>

@@ -3,7 +3,6 @@ import { Heading } from 'fumadocs-ui/components/heading';
 import { Card } from 'fumadocs-ui/components/card';
 import { Callout } from 'fumadocs-ui/components/callout';
 import { Accordion, Accordions } from 'fumadocs-ui/components/accordion';
-import { RootToggle } from 'fumadocs-ui/components/layout/root-toggle';
 import { Tab, Tabs } from 'fumadocs-ui/components/tabs';
 import { Step, Steps } from 'fumadocs-ui/components/steps';
 import { TypeTable } from 'fumadocs-ui/components/type-table';
@@ -56,11 +55,7 @@ export function tabs(): ReactNode {
   return (
     <Wrapper>
       <div className="prose-no-margin">
-        <Tabs
-          groupId="language"
-          persist
-          items={['Javascript', 'Rust', 'Typescript']}
-        >
+        <Tabs groupId="language" persist items={['Javascript', 'Rust', 'Typescript']}>
           <Tab value="Javascript">Hello World in Javascript</Tab>
           <Tab value="Rust">Hello World in Rust</Tab>
           <Tab value="Typescript">Also works if items are not the same</Tab>
@@ -70,9 +65,7 @@ export function tabs(): ReactNode {
           <Tab value="Javascript">
             Value is shared! Try refresh and see if the value is persisted
           </Tab>
-          <Tab value="Rust">
-            Value is shared! Try refresh and see if the value is persisted
-          </Tab>
+          <Tab value="Rust">Value is shared! Try refresh and see if the value is persisted</Tab>
         </Tabs>
       </div>
     </Wrapper>
@@ -86,8 +79,7 @@ export function typeTable(): ReactNode {
         <TypeTable
           type={{
             percentage: {
-              description:
-                'The percentage of scroll position to display the roll button',
+              description: 'The percentage of scroll position to display the roll button',
               type: 'number',
               default: '0.2',
             },
@@ -200,30 +192,6 @@ export function steps(): ReactNode {
   );
 }
 
-export function rootToggle(): ReactNode {
-  return (
-    <Wrapper>
-      <div className="not-prose mx-auto grid max-w-[240px] rounded-lg bg-fd-background">
-        <RootToggle
-          className="p-3"
-          options={[
-            {
-              title: 'Hello World',
-              description: 'The example item of root toggle',
-              url: '/docs/ui',
-            },
-            {
-              title: 'Other page',
-              description: 'The example item of root toggle',
-              url: '/docs/headless',
-            },
-          ]}
-        />
-      </div>
-    </Wrapper>
-  );
-}
-
 export function dynamicCodeBlock() {
   return (
     <Wrapper>
@@ -240,12 +208,7 @@ export function banner(): ReactNode {
           Be careful, Fumadocs v99 has released
         </Banner>
 
-        <Banner
-          id="test-rainbow"
-          className="z-0"
-          variant="rainbow"
-          changeLayout={false}
-        >
+        <Banner id="test-rainbow" className="z-0" variant="rainbow" changeLayout={false}>
           Using the <code>rainbow</code> variant
         </Banner>
 

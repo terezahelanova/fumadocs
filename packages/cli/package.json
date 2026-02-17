@@ -1,53 +1,56 @@
 {
   "name": "@fumadocs/cli",
-  "version": "1.0.3",
+  "version": "1.2.4",
   "description": "The CLI tool for Fumadocs",
   "keywords": [
-    "NextJs",
     "Docs",
     "Fumadocs"
   ],
   "homepage": "https://fumadocs.dev",
-  "repository": "github:fuma-nama/fumadocs",
   "license": "MIT",
   "author": "Fuma Nama",
-  "type": "module",
-  "exports": {
-    "./build": {
-      "import": "./dist/build/index.js",
-      "types": "./dist/build/index.d.ts"
-    }
-  },
-  "main": "./dist/index.js",
+  "repository": "github:fuma-nama/fumadocs",
   "bin": {
     "fumadocs": "./dist/index.js"
   },
   "files": [
     "dist/*"
   ],
+  "type": "module",
+  "main": "./dist/index.js",
+  "exports": {
+    "./build": {
+      "types": "./dist/build/index.d.ts",
+      "import": "./dist/build/index.js"
+    }
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
-    "build": "tsup",
+    "build": "tsdown --config-loader unrun",
     "clean": "rimraf dist",
-    "dev": "tsup --watch",
+    "dev": "tsdown --watch --config-loader unrun",
     "lint": "eslint .",
     "types:check": "tsc --noEmit"
   },
   "dependencies": {
-    "@clack/prompts": "^0.11.0",
-    "commander": "^14.0.2",
-    "package-manager-detector": "^1.5.0",
+    "@clack/prompts": "^1.0.1",
+    "commander": "^14.0.3",
+    "magic-string": "^0.30.21",
+    "oxc-parser": "^0.114.0",
+    "oxc-resolver": "^11.17.1",
+    "package-manager-detector": "^1.6.0",
     "picocolors": "^1.1.1",
     "tinyexec": "^1.0.2",
-    "ts-morph": "^27.0.2",
-    "zod": "^4.1.12"
+    "zod": "^4.3.6"
   },
   "devDependencies": {
-    "@types/node": "24.10.1",
+    "@oxc-project/types": "^0.114.0",
+    "@types/node": "25.2.3",
     "eslint-config-custom": "workspace:*",
-    "shadcn": "3.5.0",
-    "tsconfig": "workspace:*"
-  },
-  "publishConfig": {
-    "access": "public"
+    "shadcn": "3.8.5",
+    "tsconfig": "workspace:*",
+    "tsdown": "^0.20.3"
   }
 }

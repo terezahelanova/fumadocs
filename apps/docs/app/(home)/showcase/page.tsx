@@ -16,6 +16,7 @@ import Link from 'fumadocs-core/link';
 import MixSpace from '@/public/showcases/mix-space.png';
 import TurboStarter from '@/public/showcases/turbostarter.png';
 import Nemo from '@/public/showcases/nemo.png';
+import HexaasBlog from '@/public/showcases/hexaas-blog.png';
 
 export const metadata = createMetadata({
   title: 'Showcase',
@@ -32,11 +33,6 @@ interface ShowcaseObject {
 }
 
 const showcases: ShowcaseObject[] = [
-  {
-    image: '/showcases/million.png',
-    name: 'Million',
-    url: 'https://million.dev',
-  },
   {
     image: '/showcases/shadcn.png',
     name: 'shadcn/ui',
@@ -74,11 +70,6 @@ const showcases: ShowcaseObject[] = [
     url: 'https://ultracite.ai',
   },
   {
-    image: '/showcases/pigsty.jpg',
-    name: 'Pigsty',
-    url: 'https://pgsty.dev',
-  },
-  {
     image: '/showcases/sim.png',
     name: 'Sim',
     url: 'https://sim.ai',
@@ -89,9 +80,14 @@ const showcases: ShowcaseObject[] = [
     url: 'https://comfydeploy.com',
   },
   {
-    image: '/showcases/next-faq.png',
-    name: 'Next.js Discord Common Questions',
-    url: 'https://nextjs-faq.com',
+    image: '/showcases/octarine.png',
+    name: 'Octarine',
+    url: 'https://docs.octarine.app',
+  },
+  {
+    image: '/showcases/llm-gateway.png',
+    name: 'LLM Gateway',
+    url: 'https://llmgateway.io',
   },
   {
     image: ArkType,
@@ -104,14 +100,19 @@ const showcases: ShowcaseObject[] = [
     url: 'https://docs.zen-browser.app',
   },
   {
+    image: '/showcases/hero-ui.png',
+    name: 'Hero UI',
+    url: 'https://v3.heroui.com',
+  },
+  {
     image: '/showcases/hiro.png',
     name: 'Hiro',
     url: 'https://docs.hiro.so/stacks',
   },
   {
-    image: '/showcases/freestyle.png',
-    name: 'Freestyle',
-    url: 'https://freestyle.sh',
+    image: '/showcases/next-faq.png',
+    name: 'Next.js Discord Common Questions',
+    url: 'https://nextjs-faq.com',
   },
   {
     image: OpenPanel,
@@ -129,19 +130,29 @@ const showcases: ShowcaseObject[] = [
     url: 'https://kibo-ui.com',
   },
   {
-    image: '/showcases/libra.png',
-    name: 'Libra',
-    url: 'https://libra.dev',
-  },
-  {
     image: '/showcases/hexta-ui.png',
     name: 'HextaUI',
     url: 'https://hextaui.com',
   },
   {
+    image: MixSpace,
+    name: 'MixSpace',
+    url: 'https://mx-space.js.org',
+  },
+  {
+    image: '/showcases/libra.png',
+    name: 'Libra',
+    url: 'https://libra.dev',
+  },
+  {
     image: Sunar,
     name: 'Sunar',
     url: 'https://sunar.js.org',
+  },
+  {
+    image: '/showcases/freestyle.png',
+    name: 'Freestyle',
+    url: 'https://freestyle.sh',
   },
   {
     image: VisionUI,
@@ -163,11 +174,7 @@ const showcases: ShowcaseObject[] = [
     name: 'axion/js',
     url: 'https://axionjs.com',
   },
-  {
-    image: MixSpace,
-    name: 'MixSpace',
-    url: 'https://mx-space.js.org',
-  },
+
   {
     image: '/showcases/codehike.png',
     name: 'CodeHike',
@@ -222,10 +229,6 @@ const showcases: ShowcaseObject[] = [
     url: 'https://rehooks.pyr33x.ir',
   },
   {
-    name: 'Sherif',
-    url: 'https://eslint-config-sherif.dev',
-  },
-  {
     name: 'Swellchain',
     url: 'https://build.swellnetwork.io',
   },
@@ -273,6 +276,11 @@ const blogs: ShowcaseObject[] = [
     name: 'stutuer',
     url: 'https://www.stutuer.tech',
   },
+  {
+    image: HexaasBlog,
+    name: "hexaa's blog",
+    url: 'https://hexaa.sh/blog',
+  },
 ];
 
 const vercel = [
@@ -294,12 +302,9 @@ export default function Showcase() {
   return (
     <main className="px-4 py-12 z-2 w-full max-w-[1400px] mx-auto **:border-neutral-400 dark:**:border-neutral-700">
       <div className="relative overflow-hidden border border-dashed p-6">
-        <h1 className="mb-4 text-xl font-medium">
-          The docs framework designed with care.
-        </h1>
+        <h1 className="mb-4 text-xl font-medium">The docs framework designed with care.</h1>
         <p className="text-fd-muted-foreground">
-          A list of beautiful open-source projects with their docs powered by
-          Fumadocs.
+          A list of beautiful open-source projects with their docs powered by Fumadocs.
         </p>
         <div className="mt-6">
           <a
@@ -335,10 +340,7 @@ export default function Showcase() {
           viewBox="0 0 74 64"
           className="size-6 mt-1"
         >
-          <path
-            d="M37.5896 0.25L74.5396 64.25H0.639648L37.5896 0.25Z"
-            fill="currentColor"
-          />
+          <path d="M37.5896 0.25L74.5396 64.25H0.639648L37.5896 0.25Z" fill="currentColor" />
         </svg>
         <div>
           <h2 className="text-sm font-medium mb-2">
@@ -381,9 +383,7 @@ export default function Showcase() {
           </Link>
         </div>
       </div>
-      <h2 className="text-xl font-medium mt-12 px-4">
-        Fumadocs can power your blog, too.
-      </h2>
+      <h2 className="text-xl font-medium mt-12 px-4">Fumadocs can power your blog, too.</h2>
       <div className="mt-6 grid gap-2.5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {blogs.map((showcase) => (
           <ShowcaseItem key={showcase.url} {...showcase} />
@@ -423,9 +423,7 @@ function ShowcaseItem({ name, url, image }: ShowcaseObject) {
       rel="noreferrer noopener"
       className="flex aspect-[1.91/1] flex-col border border-dashed p-4 transition-all hover:bg-fd-accent"
     >
-      <p className="font-mono text-xs mb-2 text-fd-muted-foreground">
-        {new URL(url).hostname}
-      </p>
+      <p className="font-mono text-xs mb-2 text-fd-muted-foreground">{new URL(url).hostname}</p>
       <p className="text-xl font-medium">{name}</p>
     </a>
   );

@@ -1,8 +1,9 @@
 import { fileURLToPath } from 'node:url';
 import versionPkg from '../../create-app-versions/package.json';
-import { version as coreVersion } from '../../core/package.json';
-import { version as uiVersion } from '../../ui/package.json';
-import { version as mdxVersion } from '../../mdx/package.json';
+import * as corePkg from '../../core/package.json';
+import * as mdxPkg from '../../mdx/package.json';
+import * as radixPkg from '../../radix-ui/package.json';
+import * as basePkg from '../../base-ui/package.json';
 
 export const sourceDir = fileURLToPath(new URL(`../`, import.meta.url).href);
 
@@ -15,7 +16,8 @@ export interface TemplateInfo {
     | 'react-router'
     | 'react-router-spa'
     | 'tanstack-start'
-    | 'tanstack-start-spa';
+    | 'tanstack-start-spa'
+    | '+next+fuma-docs-mdx+static';
   label: string;
   appDir: string;
   /**
@@ -36,6 +38,12 @@ export const templates: TemplateInfo[] = [
     hint: 'recommended',
     appDir: '',
     rootProviderPath: 'app/layout.tsx',
+  },
+  {
+    value: '+next+fuma-docs-mdx+static',
+    label: 'Next.js Static: Fumadocs MDX',
+    appDir: '',
+    rootProviderPath: 'components/provider.tsx',
   },
   {
     value: 'waku',
@@ -71,9 +79,10 @@ export const templates: TemplateInfo[] = [
   },
 ];
 
-export const depVersions = {
-  ...versionPkg.dependencies,
-  'fumadocs-core': coreVersion,
-  'fumadocs-ui': uiVersion,
-  'fumadocs-mdx': mdxVersion,
-};
+const workspaces = [corePkg, mdxPkg, radixPkg, basePkg];
+
+export const depVersions = versionPkg.dependencies;
+
+for (const workspace of workspaces) {
+  depVersions[workspace.name as keyof typeof depVersions] = workspace.version;
+}

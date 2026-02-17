@@ -6,10 +6,97 @@ import * as fs from 'node:fs/promises';
 import { fumaMatter } from '@/utils/fuma-matter';
 import type { MdxJsxFlowElement, MdxJsxTextElement } from 'mdast-util-mdx-jsx';
 import { remarkHeading } from 'fumadocs-core/mdx-plugins';
-import type { DataMap } from 'vfile';
+import { VFile } from 'vfile';
 import type { Directives } from 'mdast-util-directive';
 import { remarkMarkAndUnravel } from '@/loaders/mdx/remark-unravel';
 import { flattenNode } from './mdast-utils';
+
+/**
+ * VS Code–style region extraction
+ * Adapted from VitePress:
+ * https://github.com/vuejs/vitepress/blob/main/src/node/markdown/plugins/snippet.ts
+ */
+
+// region marker regexes
+const REGION_MARKERS = [
+  {
+    start: /^\s*\/\/\s*#?region\b\s*(.*?)\s*$/,
+    end: /^\s*\/\/\s*#?endregion\b\s*(.*?)\s*$/,
+  },
+  {
+    start: /^\s*<!--\s*#?region\b\s*(.*?)\s*-->/,
+    end: /^\s*<!--\s*#?endregion\b\s*(.*?)\s*-->/,
+  },
+  {
+    start: /^\s*\/\*\s*#region\b\s*(.*?)\s*\*\//,
+    end: /^\s*\/\*\s*#endregion\b\s*(.*?)\s*\*\//,
+  },
+  {
+    start: /^\s*#[rR]egion\b\s*(.*?)\s*$/,
+    end: /^\s*#[eE]nd ?[rR]egion\b\s*(.*?)\s*$/,
+  },
+  {
+    start: /^\s*#\s*#?region\b\s*(.*?)\s*$/,
+    end: /^\s*#\s*#?endregion\b\s*(.*?)\s*$/,
+  },
+  {
+    start: /^\s*(?:--|::|@?REM)\s*#region\b\s*(.*?)\s*$/,
+    end: /^\s*(?:--|::|@?REM)\s*#endregion\b\s*(.*?)\s*$/,
+  },
+  {
+    start: /^\s*#pragma\s+region\b\s*(.*?)\s*$/,
+    end: /^\s*#pragma\s+endregion\b\s*(.*?)\s*$/,
+  },
+  {
+    start: /^\s*\(\*\s*#region\b\s*(.*?)\s*\*\)/,
+    end: /^\s*\(\*\s*#endregion\b\s*(.*?)\s*\*\)/,
+  },
+];
+
+function dedent(lines: string[]): string {
+  const minIndent = lines.reduce((min, line) => {
+    const match = line.match(/^(\s*)\S/);
+    return match ? Math.min(min, match[1].length) : min;
+  }, Infinity);
+
+  return minIndent === Infinity
+    ? lines.join('\n')
+    : lines.map((l) => l.slice(minIndent)).join('\n');
+}
+
+function extractCodeRegion(content: string, regionName: string): string {
+  const lines = content.split('\n');
+
+  for (let i = 0; i < lines.length; i++) {
+    for (const re of REGION_MARKERS) {
+      let match = re.start.exec(lines[i]);
+      if (match?.[1] !== regionName) continue;
+
+      let depth = 1;
+      const extractedLines: string[] = [];
+      for (let j = i + 1; j < lines.length; j++) {
+        match = re.start.exec(lines[j]);
+        if (match) {
+          depth++;
+          continue;
+        }
+
+        match = re.end.exec(lines[j]);
+        if (match) {
+          if (match[1] === regionName) depth = 0;
+          else if (match[1] === '') depth--;
+          else continue;
+
+          if (depth > 0) continue;
+          return dedent(extractedLines);
+        } else {
+          extractedLines.push(lines[j]);
+        }
+      }
+    }
+  }
+  throw new Error(`Region "${regionName}" not found`);
+}
 
 export interface Params {
   lang?: string;
@@ -108,56 +195,59 @@ export function remarkInclude(this: Processor): Transformer<Root, Root> {
   const TagName = 'include';
 
   const embedContent = async (
-    file: string,
+    targetPath: string,
     heading: string | undefined,
     params: Params,
-    data: Partial<DataMap>,
+    parent: VFile,
   ) => {
+    const { _getProcessor = () => this, _compiler } = parent.data;
     let content: string;
     try {
-      content = (await fs.readFile(file)).toString();
+      content = (await fs.readFile(targetPath)).toString();
     } catch (e) {
       throw new Error(
-        `failed to read file ${file}\n${e instanceof Error ? e.message : String(e)}`,
+        `failed to read file ${targetPath}\n${e instanceof Error ? e.message : String(e)}`,
         { cause: e },
       );
     }
 
-    const ext = path.extname(file);
-    data._compiler?.addDependency(file);
-
+    const ext = path.extname(targetPath);
+    _compiler?.addDependency(targetPath);
+    // For non-Markdown files, support VS Code–style region extraction
     if (params.lang || (ext !== '.md' && ext !== '.mdx')) {
       const lang = params.lang ?? ext.slice(1);
-
+      let value = content;
+      if (heading) {
+        value = extractCodeRegion(content, heading.trim());
+      }
       return {
         type: 'code',
         lang,
         meta: params.meta,
-        value: content,
+        value,
         data: {},
       } satisfies Code;
     }
 
-    const parser = data._getProcessor
-      ? data._getProcessor(ext === '.mdx' ? 'mdx' : 'md')
-      : this;
+    const parser = _getProcessor(ext === '.mdx' ? 'mdx' : 'md');
     const parsed = fumaMatter(content);
-    let mdast = parser.parse({
-      path: file,
+    const targetFile = new VFile({
+      path: targetPath,
       value: parsed.content,
-      data: { frontmatter: parsed.data as Record<string, unknown> },
-    }) as Root;
+      data: {
+        ...parent.data,
+        frontmatter: parsed.data as Record<string, unknown>,
+      },
+    });
+    let mdast = parser.parse(targetFile) as Root;
     const baseProcessor = unified().use(remarkMarkAndUnravel);
 
     if (heading) {
       // parse headings before extraction
-      const extracted = extractSection(
-        await baseProcessor.use(remarkHeading).run(mdast),
-        heading,
-      );
+      const extracted = extractSection(await baseProcessor.use(remarkHeading).run(mdast), heading);
       if (!extracted)
         throw new Error(
-          `Cannot find section ${heading} in ${file}, make sure you have encapsulated the section in a <section id="${heading}"> tag, or a :::section directive with remark-directive configured.`,
+          `Cannot find section ${heading} in ${targetPath}, make sure you have encapsulated the section in a <section id="${heading}"> tag, or a :::section directive with remark-directive configured.`,
         );
 
       mdast = extracted;
@@ -165,11 +255,11 @@ export function remarkInclude(this: Processor): Transformer<Root, Root> {
       mdast = await baseProcessor.run(mdast);
     }
 
-    await update(mdast, path.dirname(file), data);
+    await update(mdast, targetFile);
     return mdast;
   };
 
-  async function update(tree: Root, directory: string, data: Partial<DataMap>) {
+  async function update(tree: Root, file: VFile) {
     const queue: Promise<void>[] = [];
 
     visit(tree, ElementLikeTypes, (_node, _, parent) => {
@@ -181,17 +271,11 @@ export function remarkInclude(this: Processor): Transformer<Root, Root> {
 
       const attributes = parseElementAttributes(node);
       const { file: relativePath, section } = parseSpecifier(specifier);
-      const file = path.resolve(
-        'cwd' in attributes ? process.cwd() : directory,
-        relativePath,
-      );
+      const targetPath = path.resolve('cwd' in attributes ? file.cwd : file.dirname!, relativePath);
 
       queue.push(
-        embedContent(file, section, attributes, data).then((replace) => {
-          Object.assign(
-            parent && parent.type === 'paragraph' ? parent : node,
-            replace,
-          );
+        embedContent(targetPath, section, attributes, file).then((replace) => {
+          Object.assign(parent && parent.type === 'paragraph' ? parent : node, replace);
         }),
       );
 
@@ -202,6 +286,6 @@ export function remarkInclude(this: Processor): Transformer<Root, Root> {
   }
 
   return async (tree, file) => {
-    await update(tree, path.dirname(file.path), file.data);
+    await update(tree, file);
   };
 }

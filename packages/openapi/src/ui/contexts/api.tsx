@@ -13,28 +13,39 @@ import type { RenderContext, ServerObject } from '@/types';
 import { defaultAdapters, type MediaAdapter } from '@/requests/media/adapter';
 import type { NoReference } from '@/utils/schema';
 import { useStorageKey } from '../client/storage-key';
+import type { APIPageClientOptions } from '../client';
 
-type InheritFromContext = Pick<Required<RenderContext>, 'servers' | 'client'> &
-  Pick<RenderContext, 'shikiOptions'>;
+interface InheritFromContext extends Pick<RenderContext, 'shikiOptions'> {
+  client: APIPageClientOptions;
+}
 
-export interface ApiProviderProps extends InheritFromContext {
+export interface ServerProviderProps {
   /**
    * Base URL for API requests
    */
   defaultBaseUrl?: string;
+
+  servers: NoReference<ServerObject>[];
 }
 
-export interface SelectedServer {
-  url: string;
-  variables: Record<string, string>;
-}
-
-interface ApiContextType extends InheritFromContext {
+interface ServerContextType extends ServerProviderProps {
   /**
    * ref to selected API server (to query)
    */
   serverRef: RefObject<SelectedServer | null>;
+}
 
+const ServerContext = createContext<ServerContextType | null>(null);
+
+export type ApiProviderProps = InheritFromContext;
+
+export interface SelectedServer {
+  url: string;
+  name?: string;
+  variables: Record<string, string>;
+}
+
+interface ApiContextType extends InheritFromContext {
   mediaAdapters: Record<string, MediaAdapter>;
 }
 
@@ -54,6 +65,10 @@ export function useApiContext(): ApiContextType {
   return ctx;
 }
 
+export function useServerContext() {
+  return use(ServerContext)!;
+}
+
 export function useServerSelectContext(): ServerSelectType {
   const ctx = use(ServerSelectContext);
   if (!ctx) throw new Error('Component must be used under <ApiProvider />');
@@ -62,44 +77,50 @@ export function useServerSelectContext(): ServerSelectType {
 }
 
 export function ApiProvider({
-  defaultBaseUrl,
   children,
-  servers,
   shikiOptions,
   client,
 }: ApiProviderProps & { children: ReactNode }) {
-  const serverRef = useRef<SelectedServer | null>(null);
-
   return (
     <ApiContext
       value={useMemo(
         () => ({
-          serverRef,
           shikiOptions,
           client,
           mediaAdapters: {
             ...defaultAdapters,
             ...client.mediaAdapters,
           },
-          servers,
         }),
-        [servers, client, shikiOptions],
+        [client, shikiOptions],
       )}
     >
-      <ServerSelectProvider defaultBaseUrl={defaultBaseUrl}>
-        {children}
-      </ServerSelectProvider>
+      {children}
     </ApiContext>
+  );
+}
+
+export function ServerProvider({
+  servers,
+  defaultBaseUrl,
+  children,
+}: ServerProviderProps & { children: ReactNode }) {
+  const serverRef = useRef<SelectedServer | null>(null);
+
+  return (
+    <ServerContext value={useMemo(() => ({ servers, serverRef }), [servers])}>
+      <ServerSelectProvider defaultBaseUrl={defaultBaseUrl}>{children}</ServerSelectProvider>
+    </ServerContext>
   );
 }
 
 function ServerSelectProvider({
   defaultBaseUrl,
   children,
-}: Pick<ApiProviderProps, 'defaultBaseUrl'> & {
+}: Pick<ServerProviderProps, 'defaultBaseUrl'> & {
   children: ReactNode;
 }) {
-  const { servers, serverRef } = useApiContext();
+  const { servers, serverRef } = use(ServerContext)!;
   const storageKeys = useStorageKey();
   const [server, setServer] = useState<SelectedServer | null>(() => {
     const defaultItem = defaultBaseUrl
@@ -108,7 +129,8 @@ function ServerSelectProvider({
 
     return defaultItem
       ? {
-          url: defaultItem.url,
+          name: defaultItem.name,
+          url: defaultItem.url!,
           variables: getDefaultValues(defaultItem),
         }
       : null;
@@ -120,10 +142,18 @@ function ServerSelectProvider({
     if (!cached) return;
 
     try {
-      const obj = JSON.parse(cached);
-      if (!obj || typeof obj !== 'object') return;
-
-      setServer(obj);
+      const obj: unknown = JSON.parse(cached);
+      if (
+        typeof obj === 'object' &&
+        obj !== null &&
+        'url' in obj &&
+        typeof obj.url === 'string' &&
+        'variables' in obj &&
+        typeof obj.variables === 'object' &&
+        obj.variables !== null
+      ) {
+        setServer(obj as SelectedServer);
+      }
     } catch {
       // ignore
     }
@@ -139,10 +169,7 @@ function ServerSelectProvider({
               if (!prev) return null;
 
               const updated = { ...prev, variables };
-              localStorage.setItem(
-                storageKeys.of('server-url'),
-                JSON.stringify(updated),
-              );
+              localStorage.setItem(storageKeys.of('server-url'), JSON.stringify(updated));
               return updated;
             });
           },
@@ -151,14 +178,12 @@ function ServerSelectProvider({
             if (!obj) return;
 
             const result: SelectedServer = {
+              name: obj.name,
               url: value,
               variables: getDefaultValues(obj),
             };
 
-            localStorage.setItem(
-              storageKeys.of('server-url'),
-              JSON.stringify(result),
-            );
+            localStorage.setItem(storageKeys.of('server-url'), JSON.stringify(result));
             setServer(result);
           },
         }),
@@ -170,14 +195,12 @@ function ServerSelectProvider({
   );
 }
 
-function getDefaultValues(
-  server: NoReference<ServerObject>,
-): Record<string, string> {
+function getDefaultValues(server: NoReference<ServerObject>): Record<string, string> {
   const out: Record<string, string> = {};
   if (!server.variables) return out;
 
   for (const [k, v] of Object.entries(server.variables)) {
-    out[k] = v.default;
+    if (v.default !== undefined) out[k] = String(v.default);
   }
 
   return out;

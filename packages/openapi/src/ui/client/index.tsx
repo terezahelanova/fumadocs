@@ -1,8 +1,8 @@
 'use client';
 import type { PlaygroundClientOptions } from '@/playground/client';
 import type { MediaAdapter } from '@/requests/media/adapter';
-import type { APIExampleItem } from '../operation/example-panel';
 import type { FC } from 'react';
+import type { ExampleRequestItem } from '../operation/request-tabs';
 
 export interface APIPageClientOptions {
   playground?: PlaygroundClientOptions;
@@ -25,15 +25,13 @@ export interface APIPageClientOptions {
 
 export interface OperationClientOptions {
   APIExampleSelector?: FC<{
-    items: APIExampleItem[];
+    items: ExampleRequestItem[];
 
     value: string | undefined;
     onValueChange: (id: string) => void;
   }>;
 }
 
-export function defineClientConfig(
-  options: APIPageClientOptions = {},
-): APIPageClientOptions {
+export function defineClientConfig(options: APIPageClientOptions = {}): APIPageClientOptions {
   return options;
 }

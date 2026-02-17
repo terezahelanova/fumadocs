@@ -2,9 +2,9 @@ import * as path from 'node:path';
 import type { Image, Root } from 'mdast';
 import type { Transformer } from 'unified';
 import { visit } from 'unist-util-visit';
-import type { MdxjsEsm } from 'mdast-util-mdxjs-esm';
+import type { MdxjsEsm } from 'mdast-util-mdx';
 import type { ISizeCalculationResult } from 'image-size/types/interface';
-import type { MdxJsxFlowElement } from 'mdast-util-mdx-jsx';
+import type { MdxJsxAttribute, MdxJsxFlowElement } from 'mdast-util-mdx';
 import { fileURLToPath } from 'node:url';
 
 const VALID_BLUR_EXT = ['.jpeg', '.png', '.webp', '.avif', '.jpg'];
@@ -90,16 +90,28 @@ export function remarkImage({
     const importsToInject: { variableName: string; importPath: string }[] = [];
     const promises: Promise<void>[] = [];
 
-    async function onImage(
-      src: Source,
-      node: Image,
-    ): Promise<MdxJsxFlowElement | undefined> {
+    async function onImage(src: Source, node: Image): Promise<MdxJsxFlowElement | undefined> {
+      const attributes: MdxJsxAttribute[] = [
+        {
+          type: 'mdxJsxAttribute',
+          name: 'alt',
+          value: node.alt ?? 'image',
+        },
+      ];
+
+      if (node.title) {
+        attributes.push({
+          type: 'mdxJsxAttribute',
+          name: 'title',
+          value: node.title,
+        });
+      }
+
       if (src.type === 'file' && useImport) {
         // Unique variable name for the given static image URL
         const variableName = `__img${importsToInject.length}`;
         const hasBlur =
-          placeholder === 'blur' &&
-          VALID_BLUR_EXT.some((ext) => src.file.endsWith(ext));
+          placeholder === 'blur' && VALID_BLUR_EXT.some((ext) => src.file.endsWith(ext));
 
         if (!file.dirname) {
           throw new Error(
@@ -112,37 +124,32 @@ export function remarkImage({
           importPath: getImportPath(src.file, file.dirname),
         });
 
+        attributes.push({
+          type: 'mdxJsxAttribute',
+          name: 'src',
+          value: {
+            type: 'mdxJsxAttributeValueExpression',
+            value: variableName,
+            data: {
+              estree: {
+                body: [
+                  {
+                    type: 'ExpressionStatement',
+                    expression: { type: 'Identifier', name: variableName },
+                  },
+                ],
+                type: 'Program',
+                sourceType: 'script',
+              },
+            },
+          },
+        });
+
         const out: MdxJsxFlowElement = {
           children: [],
           type: 'mdxJsxFlowElement',
           name: 'img',
-          attributes: [
-            {
-              type: 'mdxJsxAttribute',
-              name: 'alt',
-              value: node.alt ?? 'image',
-            },
-            {
-              type: 'mdxJsxAttribute',
-              name: 'src',
-              value: {
-                type: 'mdxJsxAttributeValueExpression',
-                value: variableName,
-                data: {
-                  estree: {
-                    body: [
-                      {
-                        type: 'ExpressionStatement',
-                        expression: { type: 'Identifier', name: variableName },
-                      },
-                    ],
-                    type: 'Program',
-                    sourceType: 'script',
-                  },
-                },
-              },
-            },
-          ],
+          attributes,
         };
 
         if (hasBlur) {
@@ -167,32 +174,29 @@ export function remarkImage({
 
       if (!size) return;
 
+      attributes.push(
+        {
+          type: 'mdxJsxAttribute',
+          name: 'src',
+          // `src` doesn't support file paths, we can use `node.url` for files and let the underlying framework handle it
+          value: src.type === 'url' ? src.url.toString() : node.url,
+        },
+        {
+          type: 'mdxJsxAttribute',
+          name: 'width',
+          value: size.width.toString(),
+        },
+        {
+          type: 'mdxJsxAttribute',
+          name: 'height',
+          value: size.height.toString(),
+        },
+      );
+
       return {
         type: 'mdxJsxFlowElement',
         name: 'img',
-        attributes: [
-          {
-            type: 'mdxJsxAttribute',
-            name: 'alt',
-            value: node.alt ?? 'image',
-          },
-          {
-            type: 'mdxJsxAttribute',
-            name: 'src',
-            // `src` doesn't support file paths, we can use `node.url` for files and let the underlying framework handle it
-            value: src.type === 'url' ? src.url.toString() : node.url,
-          },
-          {
-            type: 'mdxJsxAttribute',
-            name: 'width',
-            value: size.width.toString(),
-          },
-          {
-            type: 'mdxJsxAttribute',
-            name: 'height',
-            value: size.height.toString(),
-          },
-        ],
+        attributes,
         children: [],
       };
     }
@@ -268,13 +272,8 @@ function getImportPath(file: string, dir: string): string {
  * @param publicDir - dir/url to resolve absolute paths
  * @param dir - dir to resolve relative paths
  */
-function parseSrc(
-  src: string,
-  publicDir: string,
-  dir?: string,
-): Source | undefined {
-  if (src.startsWith('file:///'))
-    return { type: 'file', file: fileURLToPath(src) };
+function parseSrc(src: string, publicDir: string, dir?: string): Source | undefined {
+  if (src.startsWith('file:///')) return { type: 'file', file: fileURLToPath(src) };
 
   if (EXTERNAL_URL_REGEX.test(src)) {
     return {
@@ -286,9 +285,7 @@ function parseSrc(
   if (src.startsWith('/')) {
     if (EXTERNAL_URL_REGEX.test(publicDir)) {
       const url = new URL(publicDir);
-      const segs = [...url.pathname.split('/'), ...src.split('/')].filter(
-        (v) => v.length > 0,
-      );
+      const segs = [...url.pathname.split('/'), ...src.split('/')].filter((v) => v.length > 0);
 
       url.pathname = `/${segs.join('/')}`;
       return { type: 'url', url };
@@ -325,8 +322,7 @@ async function getImageSize(
 
   const { timeout } = typeof onExternal === 'object' ? onExternal : {};
   const res = await fetch(src.url, {
-    signal:
-      typeof timeout === 'number' ? AbortSignal.timeout(timeout) : undefined,
+    signal: typeof timeout === 'number' ? AbortSignal.timeout(timeout) : undefined,
   });
   if (!res.ok) {
     throw new Error(

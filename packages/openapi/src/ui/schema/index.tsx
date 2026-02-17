@@ -2,20 +2,23 @@ import type { ReactNode } from 'react';
 import type { ResolvedSchema } from '@/utils/schema';
 import type { RenderContext } from '@/types';
 import { FormatFlags, schemaToString } from '@/utils/schema-to-string';
-import { combineSchema } from '@/utils/combine-schema';
+import { mergeAllOf } from '@/utils/merge-schema';
 import type { SchemaUIProps } from '@/ui/schema/client';
 import { SchemaUILazy } from '@/ui/schema/lazy';
 
 export interface FieldBase {
   description?: ReactNode;
-  infoTags?: ReactNode[];
+  infoTags?: InfoTag[];
 
   typeName: string;
   aliasName: string;
 
   deprecated?: boolean;
-  writeOnly?: boolean;
-  readOnly?: boolean;
+}
+
+export interface InfoTag {
+  label: string;
+  value: string;
 }
 
 export type SchemaData = FieldBase &
@@ -44,11 +47,27 @@ export type SchemaData = FieldBase &
           $type: string;
         }[];
       }
+    | {
+        type: 'and';
+        items: {
+          name: string;
+          $type: string;
+        }[];
+      }
   );
 
 export interface SchemaUIOptions {
   root: ResolvedSchema;
-  ctx: RenderContext;
+  client: Omit<SchemaUIProps, 'generated'>;
+
+  /**
+   * include read only props
+   */
+  readOnly?: boolean;
+  /**
+   * include write only props
+   */
+  writeOnly?: boolean;
 }
 
 export interface SchemaUIGeneratedData {
@@ -58,51 +77,41 @@ export interface SchemaUIGeneratedData {
 
 export function Schema({
   ctx,
-  root,
-  ...props
-}: SchemaUIOptions & Omit<SchemaUIProps, 'generated'>) {
+  ...options
+}: SchemaUIOptions & {
+  ctx: RenderContext;
+}) {
   if (ctx.schemaUI?.render) {
-    return ctx.schemaUI.render({ root, ...props }, ctx);
+    return ctx.schemaUI.render(options, ctx);
   }
 
-  return (
-    <SchemaUILazy {...props} generated={generateSchemaUI({ ctx, root })} />
-  );
+  return <SchemaUILazy {...options.client} generated={generateSchemaUI(options, ctx)} />;
 }
 
-export function generateSchemaUI({
-  ctx,
-  root,
-}: SchemaUIOptions): SchemaUIGeneratedData {
+export function generateSchemaUI(
+  { root, readOnly, writeOnly }: SchemaUIOptions,
+  ctx: RenderContext,
+): SchemaUIGeneratedData {
   const refs: Record<string, SchemaData> = {};
   const { showExample = false } = ctx.schemaUI ?? {};
 
   function generateInfoTags(schema: Exclude<ResolvedSchema, boolean>) {
-    const fields: ReactNode[] = [];
-
-    function field(key: string, value: ReactNode) {
-      return (
-        <div className="bg-fd-secondary border rounded-lg text-xs p-1.5 shadow-md">
-          <span className="font-medium me-2">{key}</span>
-          <code className="text-fd-muted-foreground">{value}</code>
-        </div>
-      );
-    }
+    const fields: InfoTag[] = [];
 
     if (schema.default !== undefined) {
-      fields.push(field('Default', JSON.stringify(schema.default)));
+      fields.push({ label: 'Default', value: JSON.stringify(schema.default) });
     }
 
     if (schema.pattern) {
-      fields.push(field('Match', schema.pattern));
+      fields.push({ label: 'Match', value: schema.pattern });
     }
 
     if (schema.format) {
-      fields.push(field('Format', schema.format));
+      fields.push({ label: 'Format', value: schema.format });
     }
 
     if (schema.multipleOf) {
-      fields.push(field('Multiple Of', schema.multipleOf));
+      fields.push({ label: 'Multiple Of', value: schema.multipleOf.toString() });
     }
 
     let range = formatRange(
@@ -112,16 +121,10 @@ export function generateSchemaUI({
       schema.maximum,
       schema.exclusiveMaximum,
     );
-    if (range) fields.push(field('Range', range));
+    if (range) fields.push({ label: 'Range', value: range });
 
-    range = formatRange(
-      'length',
-      schema.minLength,
-      undefined,
-      schema.maxLength,
-      undefined,
-    );
-    if (range) fields.push(field('Length', range));
+    range = formatRange('length', schema.minLength, undefined, schema.maxLength, undefined);
+    if (range) fields.push({ label: 'Length', value: range });
 
     range = formatRange(
       'properties',
@@ -130,29 +133,21 @@ export function generateSchemaUI({
       schema.maxProperties,
       undefined,
     );
-    if (range) fields.push(field('Properties', range));
+    if (range) fields.push({ label: 'Properties', value: range });
 
-    range = formatRange(
-      'items',
-      schema.minItems,
-      undefined,
-      schema.maxItems,
-      undefined,
-    );
-    if (range) fields.push(field('Items', range));
+    range = formatRange('items', schema.minItems, undefined, schema.maxItems, undefined);
+    if (range) fields.push({ label: 'Items', value: range });
 
     if (schema.enum) {
-      fields.push(
-        field(
-          'Value in',
-          schema.enum.map((value) => JSON.stringify(value)).join(' | '),
-        ),
-      );
+      fields.push({
+        label: 'Value in',
+        value: schema.enum.map((value) => JSON.stringify(value)).join(' | '),
+      });
     }
 
     if (showExample && schema.examples) {
       for (const example of schema.examples) {
-        fields.push(field('Example', JSON.stringify(example, null, 2)));
+        fields.push({ label: 'Example', value: JSON.stringify(example, null, 2) });
       }
     }
 
@@ -174,6 +169,13 @@ export function generateSchemaUI({
     return generated;
   }
 
+  function isVisible(schema: ResolvedSchema): boolean {
+    if (typeof schema === 'boolean') return true;
+    if (schema.writeOnly) return writeOnly ?? false;
+    if (schema.readOnly) return readOnly ?? false;
+    return true;
+  }
+
   function base(schema: ResolvedSchema): FieldBase {
     if (typeof schema === 'boolean') {
       const name = schema ? 'any' : 'never';
@@ -189,8 +191,6 @@ export function generateSchemaUI({
       typeName: schemaToString(schema, ctx.schema),
       aliasName: schemaToString(schema, ctx.schema, FormatFlags.UseAlias),
       deprecated: schema.deprecated,
-      readOnly: schema.readOnly,
-      writeOnly: schema.writeOnly,
     };
   }
 
@@ -213,13 +213,11 @@ export function generateSchemaUI({
       refs[id] = out;
 
       for (const type of schema.type) {
-        const item = {
+        const key = `${id}_type:${type}`;
+        scanRefs(key, {
           ...schema,
           type,
-        };
-
-        const key = `${id}_type:${type}`;
-        scanRefs(key, item);
+        });
         out.items.push({
           name: type,
           $type: key,
@@ -228,7 +226,28 @@ export function generateSchemaUI({
       return;
     }
 
-    if (schema.oneOf) {
+    if (schema.oneOf && schema.anyOf) {
+      const out: SchemaData = {
+        type: 'and',
+        items: [],
+        ...base(schema),
+      };
+      refs[id] = out;
+      for (const omit of ['anyOf', 'oneOf'] as const) {
+        const $type = `${id}_omit:${omit}`;
+        scanRefs($type, { ...schema, [omit]: undefined });
+
+        out.items.push({
+          name: refs[$type].aliasName,
+          $type,
+        });
+      }
+      return;
+    }
+
+    // display both `oneOf` & `anyOf` as OR for simplified overview
+    const union = schema.oneOf ?? schema.anyOf;
+    if (union) {
       const out: SchemaData = {
         type: 'or',
         items: [],
@@ -236,28 +255,31 @@ export function generateSchemaUI({
       };
       refs[id] = out;
 
-      for (const item of schema.oneOf) {
-        if (typeof item !== 'object') continue;
-        const key = `${id}_extends:${getSchemaId(item)}`;
-        const extended = {
-          ...schema,
-          ...item,
-        };
-        delete extended['oneOf'];
+      for (const item of union) {
+        if (typeof item !== 'object' || !isVisible(item)) continue;
+        const itemId = getSchemaId(item);
+        const key = `${id}_extends:${itemId}`;
 
-        scanRefs(key, extended);
+        scanRefs(key, {
+          ...schema,
+          oneOf: undefined,
+          anyOf: undefined,
+          ...item,
+          properties: {
+            ...schema.properties,
+            ...item.properties,
+          },
+        });
         out.items.push({
           $type: key,
-          name: schemaToString(extended, ctx.schema, FormatFlags.UseAlias),
+          name: refs[itemId]?.aliasName ?? schemaToString(item, ctx.schema, FormatFlags.UseAlias),
         });
       }
       return;
     }
 
-    const of = schema.allOf ?? schema.anyOf;
-    if (of) {
-      const combined = combineSchema(of as ResolvedSchema[]);
-      scanRefs(id, combined);
+    if (schema.allOf) {
+      scanRefs(id, mergeAllOf(schema));
       return;
     }
 
@@ -269,11 +291,12 @@ export function generateSchemaUI({
       };
       refs[id] = out;
 
-      const props = Object.entries(schema.properties ?? {});
-      if (schema.patternProperties)
-        props.push(...Object.entries(schema.patternProperties));
+      const { properties = {}, patternProperties, additionalProperties } = schema;
+      const props = Object.entries(properties);
+      if (patternProperties) props.push(...Object.entries(patternProperties));
 
       for (const [key, prop] of props) {
+        if (!isVisible(prop)) continue;
         const $type = getSchemaId(prop);
         scanRefs($type, prop);
         out.props.push({
@@ -283,9 +306,9 @@ export function generateSchemaUI({
         });
       }
 
-      if (schema.additionalProperties) {
-        const $type = getSchemaId(schema.additionalProperties);
-        scanRefs($type, schema.additionalProperties);
+      if (additionalProperties !== undefined && isVisible(additionalProperties)) {
+        const $type = getSchemaId(additionalProperties);
+        scanRefs($type, additionalProperties);
 
         out.props.push({
           $type,

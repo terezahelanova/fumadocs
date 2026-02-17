@@ -6,16 +6,18 @@ export class ValidationError extends Error {
   issues: readonly StandardSchemaV1.Issue[];
 
   constructor(message: string, issues: readonly StandardSchemaV1.Issue[]) {
-    super(
-      `${message}:\n${issues.map((issue) => `  ${issue.path}: ${issue.message}`).join('\n')}`,
-    );
+    super(`${message}:\n${issues.map((issue) => `  ${issue.path}: ${issue.message}`).join('\n')}`);
 
     this.title = message;
     this.issues = issues;
   }
 
   async toStringFormatted() {
-    const picocolors = await import('picocolors');
+    // Handle ESM/CJS interop: picocolors is a CJS module that exports via
+    // module.exports = createColors(). When dynamically imported in ESM context
+    // (e.g., Next.js 16 Turbopack), the exports are wrapped under .default
+    const picocolorsModule = await import('picocolors');
+    const picocolors = picocolorsModule.default ?? picocolorsModule;
 
     return [
       picocolors.bold(`[MDX] ${this.title}:`),
@@ -39,9 +41,7 @@ export async function validate<Schema extends StandardSchemaV1, Context>(
   }
 
   if ('~standard' in schema) {
-    const result = await (schema as StandardSchemaV1)['~standard'].validate(
-      data,
-    );
+    const result = await (schema as StandardSchemaV1)['~standard'].validate(data);
 
     if (result.issues) {
       throw new ValidationError(errorMessage, result.issues);

@@ -14,19 +14,19 @@ Host the server for handling search requests.
 Create the server from source object.
 
 <include cwd meta='tab="Next.js" title="app/api/search/route.ts"'>
-  ../../examples/next-mdx/app/api/search/route.ts
+  ../../examples/next/app/api/search/route.ts
 </include>
 
-<include cwd meta='tab="React Router" title="app/docs/search.ts"'>
-  ../../examples/react-router/app/docs/search.ts
+<include cwd meta='tab="React Router" title="app/routes/search.ts"'>
+  ../../examples/react-router-min/app/routes/search.ts
 </include>
 
 <include cwd meta='tab="Tanstack Start" title="src/routes/api/search.ts"'>
-  ../../examples/tanstack-start/src/routes/api/search.ts
+  ../../examples/tanstack-start-min/src/routes/api/search.ts
 </include>
 
-<include cwd meta='tab="Waku" title="src/pages/api/search.ts"'>
-  ../../examples/waku/src/pages/api/search.ts
+<include cwd meta='tab="Waku" title="src/pages/_api/api/search.ts"'>
+  ../../examples/waku/src/pages/_api/api/search.ts
 </include>
 
 ### From Search Indexes
@@ -51,7 +51,7 @@ export const { GET } = createSearchAPI('advanced', {
 });
 ```
 
-```ts tab="React Router" title="app/docs/search.ts"
+```ts tab="React Router" title="app/routes/search.ts"
 import type { Route } from './+types/search';
 import { createSearchAPI } from 'fumadocs-core/search/server';
 import { source } from '@/lib/source';
@@ -97,7 +97,7 @@ export const Route = createFileRoute('/api/search')({
 });
 ```
 
-```ts tab="Waku" title="src/pages/api/search.ts"
+```ts tab="Waku" title="src/pages/_api/api/search.ts"
 import { source } from '@/lib/source';
 import { createSearchAPI } from 'fumadocs-core/search/server';
 
@@ -117,7 +117,7 @@ export const { GET } = createSearchAPI('advanced', {
 
 You can search documents using:
 
-- **Fumadocs UI**: Supported out-of-the-box, see [Search UI](/docs/ui/search/orama) for details.
+- **Fumadocs UI**: Supported out-of-the-box, see [Search UI](/docs/search/orama) for details.
 - **Search Client**:
 
 ```ts twoslash
@@ -157,7 +157,7 @@ const server = createFromSource(source, {
 
 and update your search client:
 
-- **Fumadocs UI**: Configure [Tag Filter](/docs/ui/search/orama#tag-filter) on Search UI.
+- **Fumadocs UI**: Configure [Tag Filter](/docs/search/orama#tag-filter) on Search UI.
 - **Search Client**: pass a tag to the hook.
 
 ```ts
@@ -182,7 +182,7 @@ export const revalidate = false;
 export const { staticGET: GET } = createFromSource(source);
 ```
 
-```ts tab="React Router" title="app/docs/search.ts"
+```ts tab="React Router" title="app/routes/search.ts"
 // make sure this route is pre-rendered in `react-router.config.ts`.
 export async function loader() {
   // [!code highlight]
@@ -220,7 +220,7 @@ export default defineConfig({
 });
 ```
 
-```ts tab="Waku" title="src/pages/api/search.ts"
+```ts tab="Waku" title="src/pages/_api/api/search.ts"
 import { source } from '@/lib/source';
 import { createFromSource } from 'fumadocs-core/search/server';
 
@@ -237,7 +237,7 @@ export const getConfig = async () => ({
 
 and update your search clients:
 
-- **Fumadocs UI**: use [static client](/docs/ui/search/orama#static) on Search UI.
+- **Fumadocs UI**: use [static client](/docs/search/orama#static) on Search UI.
 
 - **Search Client**: use `static` instead of `fetch`.
 

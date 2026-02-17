@@ -62,6 +62,7 @@ externalDocs:
 servers:
   - url: https://galaxy.scalar.com
   - url: '{protocol}://void.scalar.com/{path}'
+    name: Production
     description: Responds with your request data
     variables:
       protocol:
@@ -80,8 +81,7 @@ security:
   - openIdConnect: []
 tags:
   - name: Authentication
-    description:
-      Some endpoints are public, but some require authentication. We provide
+    description: Some endpoints are public, but some require authentication. We provide
       all the required endpoints to create an account and authorize yourself.
   - name: Planets
     description: Everything about planets
@@ -252,8 +252,7 @@ paths:
         - Planets
       summary: Delete a planet
       operationId: deletePlanet
-      description:
-        This endpoint was used to delete planets. Unfortunately, that caused
+      description: This endpoint was used to delete planets. Unfortunately, that caused
         a lot of trouble for planets with life. So, this endpoint is now deprecated
         and should not be used anymore.
       x-scalar-stability: experimental
@@ -438,8 +437,7 @@ webhooks:
               $ref: '#/components/schemas/Planet'
       responses:
         '200':
-          description:
-            Return a 200 status to indicate that the data was received
+          description: Return a 200 status to indicate that the data was received
             successfully
 components:
   securitySchemes:
@@ -523,8 +521,7 @@ components:
         default: 10
     offset:
       name: offset
-      description:
-        The number of items to skip before starting to collect the result
+      description: The number of items to skip before starting to collect the result
         set
       in: query
       required: false
@@ -762,6 +759,7 @@ components:
           type: array
           items:
             type: string
+            enum: ['test', 'hello']
           examples:
             - ['solar-system', 'rocky', 'explored']
         lastUpdated:

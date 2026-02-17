@@ -1,7 +1,7 @@
 import type { StandardSchemaV1 } from '@standard-schema/spec';
 import type { MDXPresetOptions } from '@/config/preset';
 import type { ProcessorOptions } from '@mdx-js/mdx';
-import { frontmatterSchema, metaSchema } from '@/config/zod-4';
+import { metaSchema, pageSchema } from 'fumadocs-core/source/schema';
 import type { PostprocessOptions } from '@/loaders/mdx/remark-postprocess';
 import type { PluginOption } from '@/core';
 import type { BuildEnvironment } from './build';
@@ -40,9 +40,7 @@ export interface DocCollection<
   type: 'doc';
 
   postprocess?: Partial<PostprocessOptions>;
-  mdxOptions?:
-    | ProcessorOptions
-    | ((environment: BuildEnvironment) => Promise<ProcessorOptions>);
+  mdxOptions?: ProcessorOptions | ((environment: BuildEnvironment) => Promise<ProcessorOptions>);
 
   /**
    * Load files with async
@@ -73,10 +71,16 @@ export interface GlobalConfig {
 
   /**
    * Configure global MDX options
-   *
-   * @remarks `MDXPresetOptions`
    */
   mdxOptions?: MDXPresetOptions | (() => Promise<MDXPresetOptions>);
+
+  workspaces?: Record<
+    string,
+    {
+      dir: string;
+      config: Record<string, unknown>;
+    }
+  >;
 
   /**
    * specify a directory to access & store cache (disabled during development mode).
@@ -86,12 +90,12 @@ export interface GlobalConfig {
   experimentalBuildCache?: string;
 }
 
-export function defineCollections<
-  Schema extends StandardSchemaV1 = StandardSchemaV1,
->(options: DocCollection<Schema>): DocCollection<Schema>;
-export function defineCollections<
-  Schema extends StandardSchemaV1 = StandardSchemaV1,
->(options: MetaCollection<Schema>): MetaCollection<Schema>;
+export function defineCollections<Schema extends StandardSchemaV1 = StandardSchemaV1>(
+  options: DocCollection<Schema>,
+): DocCollection<Schema>;
+export function defineCollections<Schema extends StandardSchemaV1 = StandardSchemaV1>(
+  options: MetaCollection<Schema>,
+): MetaCollection<Schema>;
 
 export function defineCollections(
   options: DocCollection | MetaCollection,
@@ -100,7 +104,7 @@ export function defineCollections(
 }
 
 export function defineDocs<
-  DocSchema extends StandardSchemaV1 = typeof frontmatterSchema,
+  DocSchema extends StandardSchemaV1 = typeof pageSchema,
   MetaSchema extends StandardSchemaV1 = typeof metaSchema,
 >(options: {
   /**
@@ -121,7 +125,7 @@ export function defineDocs<
     docs: defineCollections({
       type: 'doc',
       dir,
-      schema: frontmatterSchema as any,
+      schema: pageSchema as any,
       ...options?.docs,
     }),
     meta: defineCollections({

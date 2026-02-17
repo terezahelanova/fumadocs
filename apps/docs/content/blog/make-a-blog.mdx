@@ -18,14 +18,15 @@ We will use Fumadocs MDX to manage the content, and implement our own UI with Ta
 Define a `blogPosts` collection.
 
 ```ts title="source.config.ts"
-import { defineCollections, frontmatterSchema } from 'fumadocs-mdx/config';
+import { defineCollections } from 'fumadocs-mdx/config';
+import { pageSchema } from 'fumadocs-core/source/schema';
 import { z } from 'zod';
 
 export const blogPosts = defineCollections({
   type: 'doc',
   dir: 'content/blog',
   // add required frontmatter properties
-  schema: frontmatterSchema.extend({
+  schema: pageSchema.extend({
     author: z.string(),
     date: z.string().date().or(z.date()),
   }),
@@ -62,7 +63,7 @@ export default function Home() {
   const posts = blog.getPages();
 
   return (
-    <main className="grow container mx-auto px-4 py-8">
+    <main className="flex-1 w-full max-w-[1400px] mx-auto px-4 py-8">
       <h1 className="text-4xl font-bold mb-8">Latest Blog Posts</h1>
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         {posts.map((post) => (
@@ -98,9 +99,7 @@ import { InlineTOC } from 'fumadocs-ui/components/inline-toc';
 import defaultMdxComponents from 'fumadocs-ui/mdx';
 import { blog } from '@/lib/source';
 
-export default async function Page(props: {
-  params: Promise<{ slug: string }>;
-}) {
+export default async function Page(props: { params: Promise<{ slug: string }> }) {
   const params = await props.params;
   const page = blog.getPage([params.slug]);
 
@@ -109,12 +108,12 @@ export default async function Page(props: {
 
   return (
     <>
-      <div className="container rounded-xl border py-12 md:px-8">
+      <div className="w-full max-w-[1400px] mx-auto px-4 py-12 rounded-xl border md:px-8">
         <h1 className="mb-2 text-3xl font-bold">{page.data.title}</h1>
         <p className="mb-4 text-fd-muted-foreground">{page.data.description}</p>
         <Link href="/blog">Back</Link>
       </div>
-      <article className="container flex flex-col px-4 py-8">
+      <article className="w-full max-w-[1400px] mx-auto flex flex-col px-4 py-8">
         <div className="prose min-w-0">
           <InlineTOC items={page.data.toc} />
           <Mdx components={defaultMdxComponents} />
@@ -126,9 +125,7 @@ export default async function Page(props: {
           </div>
           <div>
             <p className="mb-1 text-sm text-fd-muted-foreground">At</p>
-            <p className="font-medium">
-              {new Date(page.data.date).toDateString()}
-            </p>
+            <p className="font-medium">{new Date(page.data.date).toDateString()}</p>
           </div>
         </div>
       </article>
@@ -149,9 +146,7 @@ And configure metadata:
 import { notFound } from 'next/navigation';
 import { blog } from '@/lib/source';
 
-export async function generateMetadata(props: {
-  params: Promise<{ slug: string }>;
-}) {
+export async function generateMetadata(props: { params: Promise<{ slug: string }> }) {
   const params = await props.params;
   const page = blog.getPage([params.slug]);
 

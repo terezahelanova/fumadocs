@@ -1,5 +1,98 @@
 # fumadocs-typescript
 
+## 5.1.3
+
+### Patch Changes
+
+- 071347a: Support props passthrough for type tables
+- 20cd4d6: Support ID & `@fumadocsHref` tag in type tables
+- Updated dependencies [00c9a0f]
+- Updated dependencies [20cd4d6]
+  - fumadocs-core@16.6.1
+  - fumadocs-ui@16.6.1
+
+## 5.1.2
+
+### Patch Changes
+
+- c22f6ee: bump tsdown
+- Updated dependencies [c22f6ee]
+  - fumadocs-ui@16.5.2
+  - fumadocs-core@16.5.2
+
+## 5.1.0
+
+### Minor Changes
+
+- f6cecbf: Use Universal Shiki configuartion for Markdown renderer
+
+### Patch Changes
+
+- Updated dependencies [9ba1250]
+  - fumadocs-ui@16.6.0
+  - fumadocs-core@16.6.0
+
+## 5.0.1
+
+### Patch Changes
+
+- 689d31e: Improve error message
+- b16a32f: Switch to tsdown for bundling
+- Updated dependencies [590d36a]
+- Updated dependencies [98d38ff]
+- Updated dependencies [446631d]
+- Updated dependencies [b16a32f]
+  - fumadocs-core@16.4.2
+  - fumadocs-ui@16.4.2
+
+## 5.0.0
+
+### Major Changes
+
+- 9a3e2e8: **Require async for `generator.generateDocumentation()`**
+
+  This is necessary to support async cache adapter.
+
+- 9a3e2e8: **Remove deprecated APIs**
+  - removed standalone `generateDocumentation()` function, create a generator instead.
+  - removed `generateFiles` & MDX generation APIs, use `remarkAutoTypeTable` instead.
+
+- 9a3e2e8: **Require explicit cache**
+
+  Previously, we enabled file system cache by default, but the directory is not customisable and only support Next.js.
+
+  Now, cache is disabled by default and require explicit declaration.
+
+  Update all your `createGenerator()` calls:
+
+  ```ts
+  import {
+    createGenerator,
+    createFileSystemGeneratorCache,
+  } from "fumadocs-typescript";
+
+  const generator = createGenerator({
+    // add this!
+    cache: createFileSystemGeneratorCache(".next/fumadocs-typescript"),
+  });
+  ```
+
+### Patch Changes
+
+- Updated dependencies [7c78045]
+  - fumadocs-ui@16.3.2
+  - fumadocs-core@16.3.2
+
+## 4.0.14
+
+### Patch Changes
+
+- f728e67: Support customising full type with `@fumadocsType` tag
+- Updated dependencies [da87713]
+- Updated dependencies [d17499b]
+  - fumadocs-core@16.2.4
+  - fumadocs-ui@16.2.4
+
 ## 4.0.13
 
 ### Patch Changes
@@ -131,7 +224,7 @@
   Create a generator instance:
 
   ```ts
-  import { createGenerator } from 'fumadocs-typescript';
+  import { createGenerator } from "fumadocs-typescript";
 
   const generator = createGenerator(tsconfig);
   ```
@@ -251,7 +344,7 @@
   Add the `remarkDocGen` plugin to your remark plugins.
 
   ```ts
-  import { remarkDocGen, fileGenerator } from 'fumadocs-docgen';
+  import { remarkDocGen, fileGenerator } from "fumadocs-docgen";
 
   remark().use(remarkDocGen, { generators: [fileGenerator()] });
   ```
@@ -281,7 +374,7 @@
   For `remarkInstall`, it remains the same:
 
   ```ts
-  import { remarkInstall } from 'fumadocs-docgen';
+  import { remarkInstall } from "fumadocs-docgen";
   ```
 
 ## 1.0.2

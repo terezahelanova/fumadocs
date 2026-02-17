@@ -1,14 +1,11 @@
-import { idToTitle } from '@/utils/id-to-title';
 import type { ApiPageProps, OperationItem, WebhookItem } from '@/ui/api-page';
 import type { ProcessedDocument } from '@/utils/process-document';
-import type { TableOfContents } from 'fumadocs-core/toc';
-import type { StructuredData } from 'fumadocs-core/mdx-plugins';
-import type { Document, TagObject } from '@/types';
+import type { TagObject } from '@/types';
 import { dump } from 'js-yaml';
-import type { NoReference } from '@/utils/schema';
-import Slugger from 'github-slugger';
 import { removeUndefined } from '@/utils/remove-undefined';
 import type { OutputEntry } from '@/utils/pages/builder';
+import type { InternalOpenAPIMeta } from '@/server/source-api';
+import { toStaticData } from '@/utils/pages/to-static-data';
 
 export interface PagesToTextOptions {
   /**
@@ -62,7 +59,6 @@ export function toText(
         processed,
         {
           operations: [entry.item],
-          hasHead: false,
         },
         {
           ...options,
@@ -79,7 +75,7 @@ export function toText(
         {
           operations: entry.operations,
           webhooks: entry.webhooks,
-          hasHead: true,
+          showTitle: true,
         },
         {
           ...options,
@@ -96,7 +92,7 @@ export function toText(
         {
           operations: entry.operations,
           webhooks: entry.webhooks,
-          hasHead: true,
+          showTitle: true,
         },
         {
           ...options,
@@ -113,7 +109,6 @@ export function toText(
         processed,
         {
           webhooks: [entry.item],
-          hasHead: false,
         },
         {
           ...options,
@@ -151,21 +146,13 @@ export function generateDocument(
   if (imports) {
     out.push(
       ...imports
-        .map(
-          (item) =>
-            `import { ${item.names.join(', ')} } from ${JSON.stringify(item.from)};`,
-        )
+        .map((item) => `import { ${item.names.join(', ')} } from ${JSON.stringify(item.from)};`)
         .join('\n'),
     );
   }
 
   out.push(content);
   return out.join('\n\n');
-}
-
-interface StaticData {
-  toc: TableOfContents;
-  structuredData: StructuredData;
 }
 
 export type DocumentContext =
@@ -197,21 +184,26 @@ function generatePage(
     document: schemaId,
   };
 
-  let meta: object | undefined;
+  let meta: InternalOpenAPIMeta | undefined;
   if (page.operations?.length === 1) {
     const operation = page.operations[0];
 
     meta = {
       method: operation.method.toUpperCase(),
-      route: operation.path,
+    };
+  } else if (page.webhooks?.length === 1) {
+    const webhook = page.webhooks[0];
+
+    meta = {
+      method: webhook.method.toUpperCase(),
+      webhook: true,
     };
   }
 
-  const data = generateStaticData(processed.dereferenced, page);
+  const data = toStaticData(page, processed.dereferenced);
   const content: string[] = [];
 
-  if (options.description && includeDescription)
-    content.push(options.description);
+  if (options.description && includeDescription) content.push(options.description);
   content.push(pageContent(page));
 
   return generateDocument(
@@ -231,55 +223,48 @@ function generatePage(
   );
 }
 
-function generateStaticData(
-  dereferenced: NoReference<Document>,
-  props: ApiPageProps,
-): StaticData {
-  const slugger = new Slugger();
-  const toc: TableOfContents = [];
-  const structuredData: StructuredData = { headings: [], contents: [] };
+function pageContent({
+  showTitle,
+  showDescription,
+  document,
+  webhooks,
+  operations,
+}: ApiPageProps): string {
+  const propStrs: string[] = [`document={${JSON.stringify(document)}}`];
 
-  for (const item of props.operations ?? []) {
-    const operation = dereferenced.paths?.[item.path]?.[item.method];
-    if (!operation) continue;
-
-    if (props.hasHead && operation.operationId) {
-      const title =
-        operation.summary ??
-        (operation.operationId ? idToTitle(operation.operationId) : item.path);
-      const id = slugger.slug(title);
-
-      toc.push({
-        depth: 2,
-        title,
-        url: `#${id}`,
-      });
-      structuredData.headings.push({
-        content: title,
-        id,
-      });
-    }
-
-    if (operation.description)
-      structuredData.contents.push({
-        content: operation.description,
-        heading: structuredData.headings.at(-1)?.id,
-      });
+  // filter extra properties in props
+  if (webhooks) {
+    propStrs.push(
+      `webhooks={${JSON.stringify(
+        webhooks.map(
+          (item) =>
+            ({
+              name: item.name,
+              method: item.method,
+            }) satisfies WebhookItem,
+        ),
+      )}}`,
+    );
+  }
+  if (operations) {
+    propStrs.push(
+      `operations={${JSON.stringify(
+        operations.map(
+          (item) =>
+            ({
+              path: item.path,
+              method: item.method,
+            }) satisfies OperationItem,
+        ),
+      )}}`,
+    );
+  }
+  if (showTitle) {
+    propStrs.push(`showTitle={${JSON.stringify(showTitle)}}`);
+  }
+  if (showDescription) {
+    propStrs.push(`showDescription={${JSON.stringify(showDescription)}}`);
   }
 
-  return { toc, structuredData };
-}
-
-function pageContent(props: ApiPageProps): string {
-  // filter extra properties in props
-  const operations: OperationItem[] = (props.operations ?? []).map((item) => ({
-    path: item.path,
-    method: item.method,
-  }));
-  const webhooks: WebhookItem[] = (props.webhooks ?? []).map((item) => ({
-    name: item.name,
-    method: item.method,
-  }));
-
-  return `<APIPage document={${JSON.stringify(props.document)}} operations={${JSON.stringify(operations)}} webhooks={${JSON.stringify(webhooks)}} hasHead={${JSON.stringify(props.hasHead)}} />`;
+  return `<APIPage ${propStrs.join(' ')} />`;
 }
