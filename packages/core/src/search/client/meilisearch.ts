@@ -26,17 +26,41 @@ export async function searchDocs(
   });
 
   const highlighter = createContentHighlighter(query);
-
   const hits = response.hits ?? [];
 
-  return hits.map<SortedResult>((hit) => {
-    return {
-      id: hit.id,
-      type: 'page',
+  const headings = new Map<string, any>();
+  const data = new Map<string, any[]>();
+  let idCounter = 0;
+
+  for (const hit of hits) {
+    const id = hit.url;
+
+    if (!headings.has(id)) {
+      headings.set(id, {
+        id: id,
+        type: 'page',
+        content: highlighter.highlightMarkdown(hit.heading),
+        breadcrumbs: [hit.pageTitle],
+        url: hit.url,
+      });
+      data.set(id, []);
+    }
+
+    data.get(id)?.push({
+      id: `${id}-${idCounter++}`,
+      content: highlighter.highlightMarkdown(hit.rawContent),
+      type: 'text',
       url: hit.url,
-      breadcrumbs: hit.pageTitle && hit.heading ? [hit.pageTitle, hit.heading] : (hit.pageTitle ? [hit.pageTitle] : []),
-      content: hit.content,
-      contentWithHighlights: highlighter.highlight(hit.content),
-    };
+    });
+  }
+
+  const result: SortedResult[] = [];
+
+  headings.forEach((headingItem, id) => {
+    result.push(headingItem);
+    const textItems = data.get(id)!;
+    result.push(...textItems);
   });
+
+  return result;
 }
