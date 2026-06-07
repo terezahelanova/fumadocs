@@ -3,12 +3,223 @@ title: Meilisearch
 description: Integrate Meilisearch Search with Fumadocs
 ---
 
-## Introduction
+The Meilisearch client searches the within an external documentation files. This external documentation needs to match the pages in Fumadocs.
 
-## Setup
 
-### Get your API Key
+### Meilisearch setup
 
-### Create a Store
+1. Deploy self-hosted Meilisearch or use Meilisearch Cloud [(details)](https://www.meilisearch.com/docs/getting_started/overview)
+2. Upload your source documentation into Meilisearch.
+3. Create a new API key and store it in your environment variable **MEILISEARCH_KEY**.
+4. Store Meilisearch host in your environment variable **MEILISEARCH_HOST**.
 
-### Sync Documentation
+### Create Meilisearch client
+
+Initialize Meilisearch client that can be used in server-side functions.
+
+```ts title="app/docs/lib/meilisearch/meilisearch.ts"
+import 'server-only';
+
+import { Meilisearch } from 'meilisearch';
+export type { Meilisearch } from 'meilisearch';
+
+const host = process.env.MEILISEARCH_HOST;
+const apiKey = process.env.MEILISEARCH_KEY;
+export const MEILISEARCH_INDEX = process.env.MEILISEARCH_INDEX || 'docs';
+
+
+if (!host) {
+  throw new Error('Missing MEILISEARCH_HOST environment variable');
+}
+
+if (!apiKey) {
+  throw new Error('Missing MEILISEARCH_KEY environment variable');
+}
+
+export const meiliClient = new Meilisearch({
+  host,
+  apiKey,
+});
+```
+
+### Search API
+
+Create an API route to handle search requests server-side:
+
+```ts title="app/api/search/route.ts"
+import { createMeilisearchAPI } from 'fumadocs-core/search/meilisearch';
+import { meiliClient, MEILISEARCH_INDEX } from '@/lib/meilisearch/meilisearch';
+
+export async function GET(request: Request) {
+  const url = new URL(request.url);
+
+  const filterAttribute = url.searchParams.get('filterAttribute') ?? undefined;
+  const filterAttributeValue = url.searchParams.get('filterAttributeValue') ?? undefined;
+
+  const searchAPI = createMeilisearchAPI({
+    indexUid: MEILISEARCH_INDEX,
+    client: meiliClient,
+    filterAttribute: filterAttribute,
+    filterAttributeValue: filterAttributeValue,
+  });
+  return searchAPI.GET(request);
+}
+```
+
+### Search Client
+
+Create a new Meilisearch search dialog and use it in the RootProvider.
+
+```tsx title="apps/docs/components/layouts/meilisearch.tsx"
+'use client';
+
+import {
+  SearchDialog,
+  SearchDialogClose,
+  SearchDialogContent,
+  SearchDialogFooter,
+  SearchDialogHeader,
+  SearchDialogIcon,
+  SearchDialogInput,
+  SearchDialogList,
+  SearchDialogOverlay,
+  type SharedProps,
+} from 'fumadocs-ui/components/dialog/search';
+import { useEffect, useState, useMemo } from 'react';
+import { Popover, PopoverContent, PopoverTrigger } from 'fumadocs-ui/components/ui/popover';
+import { cn } from '@/lib/cn';
+import { buttonVariants } from '@/components/ui/button';
+import { ChevronDown } from 'lucide-react';
+import { useDocsSearch } from 'fumadocs-core/search/client';
+import { meilisearchFilters } from 'fumadocs-core/search/client/meilisearch';
+
+const FILTER_ATTRIBUTE = process.env.MEILISEARCH_FILTER_ATTRIBUTE || 'scope';
+
+export default function MeilisearchSearchDialog(props: SharedProps) {
+  const defaultFilter = 'None';
+  const [openFilterDialog, setOpenFilterDialog] = useState(false);
+  const [activeFilter, setActiveFilter] = useState<string>('');
+  const [filterOptions, setFilterOptions] = useState<string[]>([defaultFilter]);
+
+  const clientOptions = useMemo(
+    () => ({
+      type: 'meilisearch' as const,
+      filterAttributeValue: activeFilter,
+      filterAttribute: FILTER_ATTRIBUTE,
+    }),
+    [activeFilter, FILTER_ATTRIBUTE],
+  );
+
+  const { search, setSearch, query } = useDocsSearch(clientOptions);
+
+  useEffect(() => {
+    if (!props.open) return;
+
+    let finishRequest = true;
+
+    (async () => {
+      try {
+        const availableFilters = [];
+        availableFilters.push(defaultFilter);
+
+        let fetchedFilters = await meilisearchFilters({
+          filterAttribute: FILTER_ATTRIBUTE,
+        });
+        fetchedFilters?.forEach((filter: string) => {
+          availableFilters.push(filter);
+        });
+
+        if (finishRequest) {
+          setFilterOptions(availableFilters);
+        }
+      } catch (error) {
+        console.error(
+          `Failed to load available filters from Meilisearch for '${FILTER_ATTRIBUTE}':`,
+          error,
+        );
+
+        if (finishRequest) {
+          setFilterOptions([defaultFilter]);
+        }
+      }
+    })();
+
+    return () => {
+      finishRequest = false;
+    };
+  }, [props.open]);
+
+  return (
+    <SearchDialog search={search} onSearchChange={setSearch} isLoading={query.isLoading} {...props}>
+      <SearchDialogOverlay />
+      <SearchDialogContent>
+        <SearchDialogHeader>
+          <SearchDialogIcon />
+          <SearchDialogInput />
+          <SearchDialogClose />
+        </SearchDialogHeader>
+
+        <SearchDialogList
+          items={query.data !== 'empty' ? query.data : null}
+        />
+
+        <SearchDialogFooter className="flex flex-row items-center gap-2">
+          <Popover open={openFilterDialog} onOpenChange={setOpenFilterDialog}>
+            <PopoverTrigger
+              className={buttonVariants({
+                size: 'sm',
+                variant: 'secondary',
+              })}
+            >
+              <span className="text-fd-muted-foreground/80 me-2">Filter</span>
+              {activeFilter === '' ? '' : filterOptions.find((item) => item === activeFilter)}
+              <ChevronDown className="size-3.5 text-fd-muted-foreground" />
+            </PopoverTrigger>
+            <PopoverContent className="flex flex-col p-1 gap-1" align="start">
+              {filterOptions.map((item, i) => {
+                const isSelected =
+                  item === activeFilter || (item === defaultFilter && activeFilter === '');
+
+                return (
+                  <button
+                    key={i}
+                    onClick={() => {
+                      setActiveFilter(item === defaultFilter ? '' : item);
+                      setOpenFilterDialog(false);
+                    }}
+                    className={cn(
+                      'rounded-lg text-start px-2 py-1.5',
+                      isSelected
+                        ? 'text-fd-primary bg-fd-primary/10'
+                        : 'hover:text-fd-accent-foreground hover:bg-fd-accent',
+                    )}
+                  >
+                    <p className="font-medium mb-0.5">{item}</p>
+                  </button>
+                );
+              })}
+            </PopoverContent>
+          </Popover>
+          <a
+            href="https://meilisearch.com"
+            rel="noreferrer noopener"
+            className="ms-auto text-xs text-fd-muted-foreground"
+          >
+            Search powered by Meilisearch
+          </a>
+        </SearchDialogFooter>
+      </SearchDialogContent>
+    </SearchDialog>
+  );
+}
+```
+
+```tsx title="apps/docs/app/provider.tsx"
+const SearchDialog = dynamic(() => import('@/components/layouts/meilisearch'), {
+  ssr: false,
+});
+```
+
+### Filter attribute
+
+The Meilisearch search dialog allows to specify a attribute which should be used for filtering. The *useDocsSearch* hook automatically fetches all available values for this attribute and the search dialog displays them in the dropdown.

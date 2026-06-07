@@ -88,7 +88,6 @@ export default function MeilisearchSearchDialog(props: SharedProps) {
 
         <SearchDialogList
           items={query.data !== 'empty' ? query.data : null}
-          // Item={(item, onClick) => {return item;}}
         />
 
         <SearchDialogFooter className="flex flex-row items-center gap-2">
