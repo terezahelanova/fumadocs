@@ -10,6 +10,7 @@ import type { MixedbreadOptions } from '@/search/client/mixedbread';
 import type { SortedResult } from '@/search';
 import type { Awaitable } from '@/types';
 import type { FlexsearchStaticOptions } from './client/flexsearch-static';
+import type { MeilisearchClientOptions } from './client/meilisearch';
 
 interface UseDocsSearch {
   search: string;
@@ -40,6 +41,9 @@ export type ClientPreset =
   | ({
       type: 'flexsearch-static';
     } & FlexsearchStaticOptions)
+  | ({
+      type: 'meilisearch';
+    } & MeilisearchClientOptions)
   | ({
       /**
        * @deprecated Use `createMixedbreadSearchAPI` from `fumadocs-core/search/mixedbread` instead.
@@ -133,6 +137,14 @@ export function useDocsSearch(
         >;
         const { mixedbreadClient } = use(res);
         client = mixedbreadClient(clientRest);
+        break;
+      }
+      case 'meilisearch': {
+        const res = (promiseMap[clientRest.type] ??= import('./client/meilisearch')) as Promise<
+          typeof import('./client/meilisearch')
+        >;
+        const { meilisearchClient } = use(res);
+        client = meilisearchClient(clientRest);
         break;
       }
       case 'static': {

@@ -44,6 +44,9 @@ importers:
       '@floating-ui/react-dom':
         specifier: ^2.1.8
         version: 2.1.8(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
+      '@fumadocs/mdx-remote':
+        specifier: ^1.4.10
+        version: 1.4.10(@types/mdx@2.0.13)(@types/react@19.2.15)(fumadocs-core@packages+core)(react@19.2.6)
       '@fumadocs/story':
         specifier: workspace:*
         version: link:../../packages/story
@@ -140,6 +143,9 @@ importers:
       lucide-react:
         specifier: ^1.17.0
         version: 1.17.0(react@19.2.6)
+      meilisearch:
+        specifier: ^0.58.0
+        version: 0.58.0
       mermaid:
         specifier: ^11.15.0
         version: 11.15.0
@@ -5324,6 +5330,19 @@ packages:
 
   '@formatjs/intl-localematcher@0.8.9':
     resolution: {integrity: sha512-GmB0F/gYh4Hdl4rLWjgDsgT+x4pB54fkJeRh8kAZ4XFzKeCK8dGs+SBJWXO42QZtOUni+IDWKNuCw6wiL4lTvw==}
+
+  '@fumadocs/mdx-remote@1.4.10':
+    resolution: {integrity: sha512-bJZ9LAgKMPjwZdxNa7+paMbF5Xc4kSQxWZ5Z0gmnC6QvQPZCJr/hg8WbhxXDeBMl6s+rUiedFSSRQyUHlLOq5Q==}
+    peerDependencies:
+      '@types/mdx': '*'
+      '@types/react': '*'
+      fumadocs-core: ^15.0.0 || ^16.0.0
+      react: 18.x.x || 19.x.x
+    peerDependenciesMeta:
+      '@types/mdx':
+        optional: true
+      '@types/react':
+        optional: true
 
   '@fumari/json-schema-ts@0.0.2':
     resolution: {integrity: sha512-A2x8nj45r8Kc3Gqa+HpWRF9uzIMc9dySB6L2R2kiyjLHXWBsZUX99Atj5+Yup/iRQXQ9s8AX+uAPwPze7Xn05A==}
@@ -12417,6 +12436,10 @@ packages:
     resolution: {integrity: sha512-aisnrDP4GNe06UcKFnV5bfMNPBUw4jsLGaWwWfnH3v02GnBuXX2MCVn5RbrWo0j3pczUilYblq7fQ7Nw2t5XKw==}
     engines: {node: '>= 0.8'}
 
+  meilisearch@0.58.0:
+    resolution: {integrity: sha512-MXFlU+JVG2I3tDI4brS3UHxEv2fjOROP24TPP16c8dGHTulb1kxMgXvKP0x4ImvUcsVVJFi4QXP0JNDS/TaWaw==}
+    engines: {node: ^20.19.0 || >=22.12.0}
+
   mendoza@3.0.8:
     resolution: {integrity: sha512-iwxgEpSOx9BDLJMD0JAzNicqo9xdrvzt6w/aVwBKMndlA6z/DH41+o60H2uHB0vCR1Xr37UOgu9xFWJHvYsuKw==}
     engines: {node: '>=14.18'}
@@ -17509,6 +17532,20 @@ snapshots:
   '@formatjs/intl-localematcher@0.8.9':
     dependencies:
       '@formatjs/fast-memoize': 3.1.5
+
+  '@fumadocs/mdx-remote@1.4.10(@types/mdx@2.0.13)(@types/react@19.2.15)(fumadocs-core@packages+core)(react@19.2.6)':
+    dependencies:
+      '@mdx-js/mdx': 3.1.1
+      fumadocs-core: link:packages/core
+      js-yaml: 4.1.1
+      react: 19.2.6
+      unified: 11.0.5
+      vfile: 6.0.3
+    optionalDependencies:
+      '@types/mdx': 2.0.13
+      '@types/react': 19.2.15
+    transitivePeerDependencies:
+      - supports-color
 
   '@fumari/json-schema-ts@0.0.2(json-schema-typed@8.0.2)':
     dependencies:
@@ -25331,6 +25368,8 @@ snapshots:
   media-typer@0.3.0: {}
 
   media-typer@1.1.0: {}
+
+  meilisearch@0.58.0: {}
 
   mendoza@3.0.8: {}
 
